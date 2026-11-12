@@ -1,0 +1,405 @@
+html,
+body {
+  margin: 0;
+  background: transparent;
+  overflow: hidden;
+  font-family: var(--font);
+}
+
+body {
+  padding: var(--margin-top) var(--margin-side) var(--margin-bottom);
+}
+
+/* ---------- Nota ---------- */
+.note {
+  width: var(--note-width);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-note);
+  border: 1px solid var(--border-note);
+  border-radius: var(--note-radius);
+  box-shadow: var(--note-shadow);
+  overflow: hidden;
+}
+
+/* Minimizar: solo queda la cabecera. */
+.note.is-collapsed > :not(.note-header) {
+  display: none;
+}
+
+/* ---------- Botón de icono ---------- */
+.ib {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+.ib:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.ib:focus-visible,
+.add-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.ib.is-on {
+  background: var(--bg-on);
+  color: var(--accent);
+}
+.ib.close:hover {
+  background: var(--bg-close-hover);
+  color: #fff;
+}
+.tb {
+  width: 34px;
+  height: 32px;
+}
+
+/* ---------- Cabecera (zona de arrastre) ---------- */
+.note-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 46px;
+  padding: 0 8px;
+  box-sizing: border-box;
+  border-bottom: 1px solid var(--border-soft);
+  -webkit-app-region: drag;
+}
+.note-header .ib,
+.note-header .title-in {
+  -webkit-app-region: no-drag;
+}
+.divider {
+  width: 1px;
+  height: 16px;
+  background: var(--border-divider);
+  margin: 0 2px;
+}
+.title-in {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font: 600 14px/20px var(--font);
+  color: var(--text-primary);
+  padding: 4px 6px;
+  border-radius: 6px;
+}
+.title-in:hover {
+  background: var(--bg-hover-soft);
+}
+.title-in:focus {
+  background: var(--bg-track);
+}
+
+/* ---------- Progreso ---------- */
+.progress-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px 6px;
+}
+.progress-date {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.progress-count {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.progress-track {
+  margin: 0 18px 8px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--bg-track);
+  overflow: hidden;
+}
+.progress-fill {
+  height: 3px;
+  border-radius: 2px;
+  background: var(--accent);
+  width: 0;
+  transition: width 0.3s ease;
+}
+
+/* ---------- Lista ---------- */
+.scroll {
+  height: 400px;
+  overflow-y: auto;
+  padding: 4px 8px 8px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.scroll::-webkit-scrollbar-thumb {
+  background: var(--bg-on);
+  border-radius: 3px;
+}
+
+/* ---------- Tareas ---------- */
+.task {
+  display: flex;
+  flex-direction: column;
+}
+.row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  transition: background 0.15s ease;
+}
+.row:hover {
+  background: var(--bg-row-hover);
+}
+.check {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  padding: 0;
+  border: 1.5px solid var(--border-check);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-check-mark);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+.check:hover {
+  border-color: var(--border-check-hover);
+}
+.check:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.check.is-on {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.txt {
+  color: var(--text-body);
+  transition:
+    opacity 0.2s ease,
+    color 0.2s ease;
+}
+.txt.is-done {
+  text-decoration: line-through;
+  text-decoration-color: rgba(228, 228, 231, 0.6);
+  opacity: 0.5;
+}
+.time {
+  flex: none;
+  margin-top: 1px;
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: var(--bg-track);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
+}
+.task-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 13.5px;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+}
+
+/* Acciones al pasar el mouse: flotan a la derecha para no alterar el reposo. */
+.row {
+  position: relative;
+}
+.row-actions {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+.sub-row .row-actions {
+  top: 5px;
+}
+.row:hover .row-actions,
+.row:focus-within .row-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Input que reemplaza al texto al editar (doble clic). */
+.edit-in {
+  flex: 1;
+  min-width: 0;
+  margin: 0 -6px;
+  padding: 0 6px;
+  border: 0;
+  outline: 0;
+  border-radius: 6px;
+  background: var(--bg-track);
+  font-family: var(--font);
+  line-height: 20px;
+}
+.edit-in.task-text {
+  font-weight: 400;
+  color: var(--text-body);
+}
+.edit-in.sub-text {
+  font-weight: 400;
+  color: var(--text-subtask);
+}
+.ib.sm {
+  width: 22px;
+  height: 22px;
+}
+
+/* ---------- Subtareas (un solo nivel) ---------- */
+.subtasks {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 0 0 4px 18px;
+  padding-left: 12px;
+  border-left: 1px solid var(--border-subtasks);
+}
+.sub-row,
+.sub-add {
+  padding: 6px 10px;
+  align-items: flex-start;
+}
+.check.sm {
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  border-radius: 5px;
+}
+.sub-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--text-subtask);
+  overflow-wrap: anywhere;
+}
+.sub-in {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font: 400 13px/20px var(--font);
+  color: var(--text-subtask);
+}
+.sub-in::placeholder {
+  color: var(--text-placeholder);
+}
+
+/* ---------- Fila de añadir ---------- */
+.add-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  margin-top: 4px;
+  border-radius: 10px;
+  cursor: text;
+  transition: background 0.15s ease;
+}
+.add-row:hover,
+.add-row:focus-within {
+  background: var(--bg-hover-soft);
+}
+.add-btn {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1.5px dashed var(--border-dashed);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+.add-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.add-in {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font: 400 13.5px/20px var(--font);
+  color: var(--text-body);
+}
+.add-in::placeholder {
+  color: var(--text-placeholder);
+}
+.kbd {
+  flex: none;
+  font-size: 10.5px;
+  color: var(--text-placeholder);
+  padding: 1px 5px;
+  border: 1px solid var(--border-kbd);
+  border-radius: 4px;
+}
+
+/* ---------- Pie ---------- */
+.note-footer {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 10px;
+  border-top: 1px solid var(--border-soft);
+  background: var(--bg-footer);
+}
+.note-footer .divider {
+  margin: 0 4px;
+}
+.footer-spacer {
+  flex: 1;
+}
+.pinned-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--accent);
+  padding-right: 4px;
+}

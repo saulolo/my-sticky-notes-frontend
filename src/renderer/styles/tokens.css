@@ -1,0 +1,45 @@
+/* Tokens del mockup `docs/references/Artboard-cltk.dc.html` (modo oscuro). */
+:root {
+  --accent: #f5c451;
+
+  --font: Inter, system-ui, sans-serif;
+
+  /* Superficies */
+  --bg-note: #252526;
+  --bg-footer: #222223;
+  --bg-track: rgba(255, 255, 255, 0.06);
+  --bg-hover: rgba(255, 255, 255, 0.07);
+  --bg-hover-soft: rgba(255, 255, 255, 0.04);
+  --bg-on: rgba(255, 255, 255, 0.1);
+  --bg-close-hover: #c42b1c;
+
+  /* Bordes */
+  --border-note: rgba(255, 255, 255, 0.08);
+  --border-soft: rgba(255, 255, 255, 0.06);
+  --border-divider: rgba(255, 255, 255, 0.08);
+  --border-kbd: rgba(255, 255, 255, 0.1);
+  --border-dashed: #5a5a60;
+  --border-check: #5a5a60;
+  --border-check-hover: #8b8b92;
+  --bg-row-hover: rgba(255, 255, 255, 0.035);
+  --text-check-mark: #1a1a1a;
+  --text-subtask: #d4d4d8;
+  --border-subtasks: rgba(255, 255, 255, 0.09);
+
+  /* Texto */
+  --text-primary: #f4f4f5;
+  --text-body: #e4e4e7;
+  --text-muted: #a1a1aa;
+  --text-placeholder: #8b8b92;
+
+  /* Forma */
+  --note-width: 360px;
+  --note-radius: 16px;
+  --note-shadow: 0 24px 60px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(0, 0, 0, 0.4);
+
+  /* Margen transparente de la ventana donde cae la sombra.
+     Debe coincidir con SHADOW_MARGIN de src/main/index.ts. */
+  --margin-top: 40px;
+  --margin-side: 60px;
+  --margin-bottom: 84px;
+}
