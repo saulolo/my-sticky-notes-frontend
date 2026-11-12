@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>My Sticky Notes</title>
+<script src="./vendor/react.js"></script>
+<script src="./vendor/react-dom.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#141416}
+a{color:#a1a1aa}a:hover{color:#e4e4e7}
+.ib{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;border:0;border-radius:8px;background:transparent;color:#a1a1aa;cursor:pointer;transition:background .15s ease,color .15s ease}
+.ib:hover{background:rgba(255,255,255,.07);color:#f4f4f5}
+.ib:focus-visible,.check:focus-visible,.add-btn:focus-visible{outline:2px solid var(--accent,#F5C451);outline-offset:2px}
+.ib.is-on{background:rgba(255,255,255,.1);color:var(--accent,#F5C451)}
+.ib.close:hover{background:#c42b1c;color:#fff}
+.tb{width:34px;height:32px}
+.check{flex:none;display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;padding:0;border:1.5px solid #5a5a60;border-radius:6px;background:transparent;color:#1a1a1a;cursor:pointer;transition:background .15s ease,border-color .15s ease}
+.check:hover{border-color:#8b8b92}
+.check.sm{width:16px;height:16px;border-radius:5px}
+.check.is-on{background:var(--accent,#F5C451);border-color:var(--accent,#F5C451)}
+.txt{color:#e4e4e7;transition:opacity .2s ease,color .2s ease}
+.txt.is-done{text-decoration:line-through;text-decoration-color:rgba(228,228,231,.6);opacity:.5}
+.row{border-radius:10px;transition:background .15s ease}
+.row:hover{background:rgba(255,255,255,.035)}
+.title-in{flex:1;min-width:0;border:0;outline:0;background:transparent;font:600 14px/20px Inter,system-ui,sans-serif;color:#f4f4f5;padding:4px 6px;border-radius:6px}
+.title-in:hover{background:rgba(255,255,255,.04)}
+.title-in:focus{background:rgba(255,255,255,.06)}
+.add-in{flex:1;min-width:0;border:0;outline:0;background:transparent;font:400 13.5px/20px Inter,system-ui,sans-serif;color:#e4e4e7}
+.add-in::placeholder{color:#8b8b92}
+.add-btn{flex:none;display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;padding:0;border:1.5px dashed #5a5a60;border-radius:6px;background:transparent;color:#a1a1aa;cursor:pointer;transition:border-color .15s ease,color .15s ease}
+.add-btn:hover{border-color:var(--accent,#F5C451);color:var(--accent,#F5C451)}
+.add-row{border-radius:10px;transition:background .15s ease}
+.add-row:hover,.add-row:focus-within{background:rgba(255,255,255,.04)}
+.scroll::-webkit-scrollbar{width:6px}.scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:3px}
+</style>
+</helmet>
+<div style="width: 520px; height: 760px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; background: #141416; font-family: Inter, system-ui, sans-serif; --accent: {{accent}}">
+
+<section aria-label="Nota adhesiva" style="width: 360px; box-sizing: border-box; display: flex; flex-direction: column; background: #252526; border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; box-shadow: 0 24px 60px rgba(0,0,0,0.55), 0 0 0 1px rgba(0,0,0,0.4); overflow: hidden">
+
+<header style="display: flex; align-items: center; gap: 4px; height: 46px; padding: 0 8px; box-sizing: border-box; border-bottom: 1px solid rgba(255,255,255,0.06)">
+<button class="ib" aria-label="Nueva nota" title="Nueva nota">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>
+</button>
+<input class="title-in" aria-label="Título de la nota" value="{{title}}" onChange="{{onTitle}}">
+<button class="ib {{pinCls}}" aria-label="Fijar en pantalla" aria-pressed="{{pinned}}" title="Fijar en pantalla" onClick="{{togglePin}}">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="{{pinFill}}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17v5"></path><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"></path></svg>
+</button>
+<div style="width: 1px; height: 16px; background: rgba(255,255,255,0.08); margin: 0 2px"></div>
+<button class="ib" aria-label="Minimizar" title="Minimizar" onClick="{{toggleMin}}">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path></svg>
+</button>
+<button class="ib close" aria-label="Cerrar" title="Cerrar">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+</button>
+</header>
+
+<sc-if value="{{expanded}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 18px 6px">
+<span style="font-size: 11px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: #a1a1aa">Jueves, 12 nov</span>
+<span style="font-size: 11px; font-weight: 500; color: #a1a1aa; font-variant-numeric: tabular-nums">{{doneLabel}}</span>
+</div>
+<div style="margin: 0 18px 8px; height: 3px; border-radius: 2px; background: rgba(255,255,255,0.06); overflow: hidden">
+<div style="height: 3px; border-radius: 2px; background: {{accent}}; width: {{progress}}; transition: width .3s ease"></div>
+</div>
+
+<div class="scroll" style="height: 400px; overflow-y: auto; padding: 4px 8px 8px; box-sizing: border-box; display: flex; flex-direction: column; gap: 2px">
+<sc-for list="{{tasks}}" as="task" hint-placeholder-count="5">
+<div style="display: flex; flex-direction: column">
+<div class="row" style="display: flex; align-items: flex-start; gap: 10px; padding: 8px 10px">
+<button class="check {{task.checkCls}}" aria-label="Marcar tarea" aria-pressed="{{task.done}}" onClick="{{task.toggle}}" style="margin-top: 1px">
+<sc-if value="{{task.done}}" hint-placeholder-val="{{ false }}">
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>
+</sc-if>
+</button>
+<span class="txt {{task.txtCls}}" style="flex: none; font-size: 11px; font-weight: 500; line-height: 16px; padding: 1px 6px; margin-top: 1px; border-radius: 5px; background: rgba(255,255,255,0.06); color: #a1a1aa; font-variant-numeric: tabular-nums">{{task.time}}</span>
+<span class="txt {{task.txtCls}}" style="flex: 1; min-width: 0; font-size: 13.5px; line-height: 20px">{{task.text}}</span>
+</div>
+<sc-if value="{{task.hasSubs}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 1px; margin: 0 0 4px 18px; padding-left: 12px; border-left: 1px solid rgba(255,255,255,0.09)">
+<sc-for list="{{task.subs}}" as="sub" hint-placeholder-count="2">
+<div class="row" style="display: flex; align-items: flex-start; gap: 10px; padding: 6px 10px">
+<button class="check sm {{sub.checkCls}}" aria-label="Marcar subtarea" aria-pressed="{{sub.done}}" onClick="{{sub.toggle}}" style="margin-top: 2px">
+<sc-if value="{{sub.done}}" hint-placeholder-val="{{ false }}">
+<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>
+</sc-if>
+</button>
+<span class="txt {{sub.txtCls}}" style="flex: 1; min-width: 0; font-size: 13px; line-height: 20px; color: #d4d4d8">{{sub.text}}</span>
+</div>
+</sc-for>
+</div>
+</sc-if>
+</div>
+</sc-for>
+
+<label class="add-row" style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; margin-top: 4px; cursor: text">
+<button class="add-btn" aria-label="Añadir tarea" onClick="{{addTask}}">
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>
+</button>
+<span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Nueva tarea</span>
+<input class="add-in" placeholder="Añadir nueva tarea…" value="{{draft}}" onChange="{{onDraft}}" onKeyDown="{{onDraftKey}}">
+<span style="flex: none; font-size: 10.5px; color: #8b8b92; padding: 1px 5px; border: 1px solid rgba(255,255,255,0.1); border-radius: 4px">Enter</span>
+</label>
+</div>
+
+<footer style="display: flex; align-items: center; gap: 2px; padding: 8px 10px; border-top: 1px solid rgba(255,255,255,0.06); background: #222223">
+<button class="ib tb {{fmt.b}}" aria-label="Negrita" aria-pressed="{{fmtOn.b}}" title="Negrita" onClick="{{fmtToggle.b}}">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 12h9a4 4 0 0 1 0 8H7a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h7a4 4 0 0 1 0 8"></path></svg>
+</button>
+<button class="ib tb {{fmt.i}}" aria-label="Cursiva" aria-pressed="{{fmtOn.i}}" title="Cursiva" onClick="{{fmtToggle.i}}">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" x2="10" y1="4" y2="4"></line><line x1="14" x2="5" y1="20" y2="20"></line><line x1="15" x2="9" y1="4" y2="20"></line></svg>
+</button>
+<button class="ib tb {{fmt.u}}" aria-label="Subrayado" aria-pressed="{{fmtOn.u}}" title="Subrayado" onClick="{{fmtToggle.u}}">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4v6a6 6 0 0 0 12 0V4"></path><line x1="4" x2="20" y1="20" y2="20"></line></svg>
+</button>
+<button class="ib tb {{fmt.s}}" aria-label="Tachado" aria-pressed="{{fmtOn.s}}" title="Tachado" onClick="{{fmtToggle.s}}">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 4H9a3 3 0 0 0-2.83 4"></path><path d="M14 12a4 4 0 0 1 0 8H6"></path><line x1="4" x2="20" y1="12" y2="12"></line></svg>
+</button>
+<div style="width: 1px; height: 16px; background: rgba(255,255,255,0.08); margin: 0 4px"></div>
+<button class="ib tb {{fmt.l}}" aria-label="Lista con viñetas" aria-pressed="{{fmtOn.l}}" title="Lista" onClick="{{fmtToggle.l}}">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h.01"></path><path d="M3 18h.01"></path><path d="M3 6h.01"></path><path d="M8 12h13"></path><path d="M8 18h13"></path><path d="M8 6h13"></path></svg>
+</button>
+<button class="ib tb" aria-label="Adjuntar imagen" title="Adjuntar imagen">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"></rect><circle cx="9" cy="9" r="2"></circle><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path></svg>
+</button>
+<div style="flex: 1"></div>
+<sc-if value="{{pinned}}" hint-placeholder-val="{{ false }}">
+<span style="font-size: 11px; font-weight: 500; color: {{accent}}; padding-right: 4px">Fijada</span>
+</sc-if>
+</footer>
+</sc-if>
+
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#F5C451","options":["#F5C451","#60CDFF","#7EE0A8","#C4A7FF"]},"$preview":{"width":520,"height":760}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      title: 'Today Task',
+      pinned: false,
+      min: false,
+      draft: '',
+      fmt: { b: false, i: false, u: false, s: false, l: false },
+      nextId: 100,
+      tasks: [
+        { id: 1, time: '09:00', text: 'Revisar correos y priorizar el día', done: true, subs: [] },
+        { id: 2, time: '10:00', text: 'Reunión de planificación del sprint', done: false, subs: [
+          { id: 21, text: 'Preparar métricas de la semana', done: true },
+          { id: 22, text: 'Llevar lista de bloqueos', done: false }
+        ] },
+        { id: 3, time: '11:30', text: 'Diseñar la vista de notas en Angular', done: false, subs: [
+          { id: 31, text: 'Definir componentes y estados', done: true },
+          { id: 32, text: 'Maquetar la barra de herramientas', done: false },
+          { id: 33, text: 'Conectar el estado de las tareas', done: false }
+        ] },
+        { id: 4, time: '14:00', text: 'Revisión de código con el equipo', done: false, subs: [] },
+        { id: 5, time: '16:30', text: 'Cerrar pendientes y planear mañana', done: false, subs: [] }
+      ]
+    };
+  }
+
+  toggleTask(id) {
+    this.setState({ tasks: this.state.tasks.map(t => t.id === id ? { ...t, done: !t.done } : t) });
+  }
+
+  toggleSub(id, sid) {
+    this.setState({ tasks: this.state.tasks.map(t => t.id !== id ? t : {
+      ...t, subs: t.subs.map(s => s.id === sid ? { ...s, done: !s.done } : s)
+    }) });
+  }
+
+  nextTime() {
+    const ts = this.state.tasks;
+    if (!ts.length) return '09:00';
+    const parts = ts[ts.length - 1].time.split(':');
+    let h = Math.min(23, parseInt(parts[0], 10) + 1);
+    return String(h).padStart(2, '0') + ':00';
+  }
+
+  addTask() {
+    const text = this.state.draft.trim();
+    if (!text) return;
+    const id = this.state.nextId;
+    this.setState({
+      tasks: this.state.tasks.concat([{ id, time: this.nextTime(), text, done: false, subs: [] }]),
+      draft: '',
+      nextId: id + 1
+    });
+  }
+
+  renderVals() {
+    const s = this.state;
+    const accent = this.props.accent ?? '#F5C451';
+    let total = 0, done = 0;
+    const tasks = s.tasks.map(t => {
+      total++; if (t.done) done++;
+      const subs = t.subs.map(sb => {
+        total++; if (sb.done) done++;
+        return {
+          ...sb,
+          checkCls: sb.done ? 'is-on' : '',
+          txtCls: sb.done ? 'is-done' : '',
+          toggle: () => this.toggleSub(t.id, sb.id)
+        };
+      });
+      return {
+        ...t,
+        subs,
+        hasSubs: subs.length > 0,
+        checkCls: t.done ? 'is-on' : '',
+        txtCls: t.done ? 'is-done' : '',
+        toggle: () => this.toggleTask(t.id)
+      };
+    });
+    const f = s.fmt;
+    const mk = k => () => this.setState({ fmt: { ...this.state.fmt, [k]: !this.state.fmt[k] } });
+    return {
+      accent,
+      title: s.title,
+      onTitle: e => this.setState({ title: e.target.value }),
+      pinned: s.pinned,
+      pinCls: s.pinned ? 'is-on' : '',
+      pinFill: s.pinned ? 'currentColor' : 'none',
+      togglePin: () => this.setState({ pinned: !this.state.pinned }),
+      expanded: !s.min,
+      toggleMin: () => this.setState({ min: !this.state.min }),
+      tasks,
+      doneLabel: done + ' de ' + total + ' hechas',
+      progress: (total ? Math.round(done / total * 100) : 0) + '%',
+      draft: s.draft,
+      onDraft: e => this.setState({ draft: e.target.value }),
+      onDraftKey: e => { if (e.key === 'Enter') { e.preventDefault(); this.addTask(); } },
+      addTask: () => this.addTask(),
+      fmt: { b: f.b ? 'is-on' : '', i: f.i ? 'is-on' : '', u: f.u ? 'is-on' : '', s: f.s ? 'is-on' : '', l: f.l ? 'is-on' : '' },
+      fmtOn: f,
+      fmtToggle: { b: mk('b'), i: mk('i'), u: mk('u'), s: mk('s'), l: mk('l') }
+    };
+  }
+}
+</script>
+</body>
+</html>
