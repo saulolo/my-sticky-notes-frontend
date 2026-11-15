@@ -3,6 +3,8 @@ import { el } from './dom'
 export interface ProgressView {
   elements: HTMLElement[]
   update(done: number, total: number, percent: number): void
+  /** Etiqueta de fecha del día activo (`Jueves, 12 nov`). */
+  setDate(label: string): void
 }
 
 export function createProgress(dateLabel: string): ProgressView {
@@ -11,7 +13,8 @@ export function createProgress(dateLabel: string): ProgressView {
       <span class="progress-date"></span>
       <span class="progress-count"></span>
     </div>`)
-  head.querySelector('.progress-date')!.textContent = dateLabel
+  const date = head.querySelector('.progress-date')!
+  date.textContent = dateLabel
   const count = head.querySelector('.progress-count')!
 
   const track = el(`<div class="progress-track"><div class="progress-fill"></div></div>`)
@@ -22,6 +25,9 @@ export function createProgress(dateLabel: string): ProgressView {
     update(done, total, percent): void {
       count.textContent = `${done} de ${total} hechas`
       fill.style.width = `${percent}%`
+    },
+    setDate(label): void {
+      date.textContent = label
     }
   }
 }

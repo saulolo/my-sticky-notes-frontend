@@ -1,3 +1,4 @@
+import { dayKey, type DayKey } from '../domain/day'
 import { createEmptyNote, type Note } from '../domain/note'
 import * as ops from '../domain/note-operations'
 import type { Clock, NoteRepository } from './ports'
@@ -46,9 +47,21 @@ export class NoteStore {
     }
   }
 
-  /** Carga la nota desde el repositorio y avisa a los suscriptores. No dispara un guardado. */
+  /**
+   * Carga la nota desde el repositorio, avisa a los suscriptores y aplica la rotación de día.
+   * Solo dispara un guardado si la rotación cambió algo.
+   */
   async load(): Promise<void> {
     this.set(await this.deps.repository.load())
+    this.rollOver()
+  }
+
+  /**
+   * Rotación de día con la fecha del Clock: mueve los pendientes de días pasados a hoy y
+   * poda el historial. Devuelve `true` si cambió algo (y entonces programa el autoguardado).
+   */
+  rollOver(): boolean {
+    return this.change((n) => ops.rollOver(n, dayKey(this.deps.clock.now())))
   }
 
   /**
@@ -65,14 +78,10 @@ export class NoteStore {
     await this.inFlight
   }
 
-  renameNote(title: string): boolean {
-    return this.change((n) => ops.renameNote(n, title))
-  }
-
-  /** `hour` opcional (entero 0–23); sin ella se usa la hora del Clock. */
-  addTask(text: string, hour?: number): boolean {
+  /** Añade al día `day`. `hour` opcional (entero 0–23); sin ella se usa la hora del Clock. */
+  addTask(day: DayKey, text: string, hour?: number): boolean {
     return this.change((n) =>
-      ops.addTask(n, text, { id: this.deps.newId(), now: this.deps.clock.now() }, hour)
+      ops.addTask(n, day, text, { id: this.deps.newId(), now: this.deps.clock.now() }, hour)
     )
   }
 

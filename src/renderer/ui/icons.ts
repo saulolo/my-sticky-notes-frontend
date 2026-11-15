@@ -21,6 +21,12 @@ export const icons = {
       2,
       '<path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path><line x1="10" x2="10" y1="11" y2="17"></line><line x1="14" x2="14" y1="11" y2="17"></line>'
     ),
+  history: (size = 15): string =>
+    svg(
+      size,
+      2,
+      '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path><path d="M12 7v5l4 2"></path>'
+    ),
   minimize: (size = 15): string => svg(size, 2, '<path d="M5 12h14"></path>'),
   close: (size = 15): string =>
     svg(size, 2, '<path d="M18 6 6 18"></path><path d="m6 6 12 12"></path>'),

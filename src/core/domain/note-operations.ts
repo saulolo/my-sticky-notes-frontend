@@ -1,3 +1,4 @@
+import { addDays, HISTORY_DAYS, type DayKey } from './day'
 import { isValidHour, type Note, type Subtask, type Task } from './note'
 
 // Funciones puras e inmutables: reciben un Note y devuelven uno nuevo.
@@ -22,12 +23,33 @@ function clean(text: string): string {
   return text.trim()
 }
 
+/** Lista del día `day` (vacía si no existe). */
+export function tasksOf(note: Note, day: DayKey): Task[] {
+  return note.days[day] ?? []
+}
+
+/** Día que contiene la tarea `taskId` (los ids son únicos en toda la nota). */
+function findDay(note: Note, taskId: string): DayKey | undefined {
+  return Object.keys(note.days).find((day) => note.days[day].some((t) => t.id === taskId))
+}
+
+function withDay(note: Note, day: DayKey, tasks: Task[]): Note {
+  return { ...note, days: { ...note.days, [day]: tasks } }
+}
+
+/** Busca la tarea por id en todos los días y la reemplaza por `fn(tarea)`. */
 function mapTask(note: Note, taskId: string, fn: (task: Task) => Task): Note {
-  const current = note.tasks.find((t) => t.id === taskId)
-  if (!current) return note
+  const day = findDay(note, taskId)
+  if (day === undefined) return note
+  const tasks = note.days[day]
+  const current = tasks.find((t) => t.id === taskId)!
   const updated = fn(current)
   if (updated === current) return note
-  return { ...note, tasks: note.tasks.map((t) => (t.id === taskId ? updated : t)) }
+  return withDay(
+    note,
+    day,
+    tasks.map((t) => (t.id === taskId ? updated : t))
+  )
 }
 
 function mapSubtask(
@@ -43,11 +65,13 @@ function mapSubtask(
 }
 
 /**
+ * Añade la tarea al final de la lista del día `day`.
  * `hour` es la hora que fija el usuario (entero 0–23). Si falta, se usa la de `now`.
  * Una hora inválida no crea la tarea.
  */
 export function addTask(
   note: Note,
+  day: DayKey,
   text: string,
   { id, now }: NewItemContext,
   hour?: number
@@ -63,7 +87,7 @@ export function addTask(
     subtasks: [],
     createdAt: now.toISOString()
   }
-  return { ...note, tasks: [...note.tasks, task] }
+  return withDay(note, day, [...tasksOf(note, day), task])
 }
 
 export function addSubtask(note: Note, taskId: string, text: string, id: string): Note {
@@ -127,8 +151,13 @@ export function tasksByHour(tasks: readonly Task[]): Task[] {
 
 /** Eliminar una tarea elimina también sus subtareas. */
 export function deleteTask(note: Note, taskId: string): Note {
-  if (!note.tasks.some((t) => t.id === taskId)) return note
-  return { ...note, tasks: note.tasks.filter((t) => t.id !== taskId) }
+  const day = findDay(note, taskId)
+  if (day === undefined) return note
+  return withDay(
+    note,
+    day,
+    note.days[day].filter((t) => t.id !== taskId)
+  )
 }
 
 export function deleteSubtask(note: Note, taskId: string, subtaskId: string): Note {
@@ -138,18 +167,47 @@ export function deleteSubtask(note: Note, taskId: string, subtaskId: string): No
   })
 }
 
-/** Un título vacío se ignora y se conserva el anterior. */
-export function renameNote(note: Note, title: string): Note {
-  const trimmed = clean(title)
-  if (!trimmed || trimmed === note.title) return note
-  return { ...note, title: trimmed }
+/**
+ * Rotación de día:
+ * 1. Las tareas con `done: false` de días anteriores a `today` se mueven al final de la lista
+ *    de hoy (del día más viejo al más reciente, en su orden), con sus subtareas tal cual.
+ *    Una tarea hecha no se mueve aunque tenga subtareas pendientes.
+ * 2. Se borran los días anteriores a hoy − `HISTORY_DAYS` y los días pasados sin tareas.
+ * Si no cambia nada devuelve el mismo `Note`. Es idempotente.
+ */
+export function rollOver(note: Note, today: DayKey): Note {
+  const oldest = addDays(today, -HISTORY_DAYS)
+  const days: Record<DayKey, Task[]> = {}
+  const moved: Task[] = []
+  let changed = false
+
+  for (const day of Object.keys(note.days).sort()) {
+    const tasks = note.days[day]
+    if (day >= today) {
+      days[day] = tasks
+      continue
+    }
+    const pending = tasks.filter((t) => !t.done)
+    const kept = pending.length > 0 ? tasks.filter((t) => t.done) : tasks
+    moved.push(...pending)
+    if (kept.length === 0 || day < oldest) {
+      changed = true
+      continue
+    }
+    if (kept !== tasks) changed = true
+    days[day] = kept
+  }
+
+  if (!changed) return note
+  if (moved.length > 0) days[today] = [...tasksOf(note, today), ...moved]
+  return { ...note, days }
 }
 
-/** Cuenta tareas y subtareas: M = todas, N = las que tienen `done`. */
-export function progress(note: Note): Progress {
+/** Cuenta tareas y subtareas de una lista: M = todas, N = las que tienen `done`. */
+export function progress(tasks: readonly Task[]): Progress {
   let total = 0
   let done = 0
-  for (const task of note.tasks) {
+  for (const task of tasks) {
     total += 1
     if (task.done) done += 1
     for (const sub of task.subtasks) {

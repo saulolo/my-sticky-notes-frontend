@@ -4,9 +4,12 @@ Nota adhesiva de escritorio (Electron) con tareas, subtareas y autoguardado. Ré
 
 ## Funciones
 
-- Título editable, fecha en cabecera y progreso (`N de M hechas`, tareas + subtareas).
-- Tareas con hora (hora local al crearlas), una sola capa de subtareas, edición con doble clic, borrado.
-- Autoguardado en JSON (debounce 300 ms) en `userData/note.json`.
+- Una lista de tareas por día. Pestañas "Ayer", "Hoy" y "Mañana" siempre visibles; el botón de historial (reloj) abre los días anteriores con tareas (hasta hoy − 5). Todos los días son editables. Al abrir, la pestaña activa es Hoy.
+- Cambio de día (al abrir la app y a las 00:00 con la app abierta): las tareas pendientes de días pasados pasan a Hoy con sus subtareas; las hechas se quedan en su día. Se borran los días anteriores a hoy − 5 y los días pasados vacíos.
+- Fecha del día activo y progreso (`N de M hechas`, tareas + subtareas).
+- Tareas con hora manual (0–23; vacío = hora actual), ordenadas por hora. Una sola capa de subtareas, contraíble. Edición con doble clic (texto y hora), borrado.
+- Sin título de nota: el día se lee en la pestaña y en la fecha.
+- Autoguardado en JSON (debounce 300 ms) en `userData/note.json` (formato `version: 2`, una lista por día). Un archivo `version: 1` se migra al leerlo: sus tareas pasan a Hoy.
 - Fijar (siempre encima), minimizar (colapsa bajo la cabecera) y cerrar.
 - Se recuerda posición, fijada y colapsada; si la posición queda fuera de pantalla, se centra.
 - `note.json` corrupto: arranca vacío y respalda el original como `note.corrupt-<timestamp>.json`.
@@ -34,13 +37,13 @@ Node 24+ y npm 11+.
 ```
 src/
   core/        dominio + aplicación puros (sin electron ni DOM)
-    domain/      Note, Task, operaciones inmutables, validación, etiqueta de fecha
-    application/ NoteStore (estado, autoguardado), puertos (Clock, NoteRepository)
+    domain/      Note (días), Task, operaciones inmutables, rotación de día, validación y migración, días y etiquetas de fecha
+    application/ NoteStore (estado, autoguardado, rotación), puertos (Clock, NoteRepository)
   main/        proceso principal: ventana, IPC, JsonNoteRepository
   preload/     puente seguro: expone window.stickyApi
   renderer/    UI en TypeScript vanilla (ui/, styles/, infrastructure/)
 tests/         domain, application, main
-specs/         especificaciones (01-nota-de-escritorio.md)
+specs/         especificaciones (01 nota de escritorio, 02 hora manual y orden, 03 pestañas por día)
 ```
 
 Seguridad: `contextIsolation: true`, `nodeIntegration: false`, `sandbox: true`. El renderer solo ve `window.stickyApi`.

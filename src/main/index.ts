@@ -2,6 +2,7 @@ import { app, shell, BrowserWindow } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+import { dayKey } from '../core/domain/day'
 import { registerIpc } from './ipc'
 import { JsonNoteRepository } from './json-note-repository'
 import { WindowControls } from './window-controls'
@@ -55,7 +56,9 @@ app.whenReady().then(async () => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  repository = new JsonNoteRepository(join(app.getPath('userData'), 'note.json'))
+  repository = new JsonNoteRepository(join(app.getPath('userData'), 'note.json'), () =>
+    dayKey(new Date())
+  )
   const stored = await repository.load()
   const windowControls = new WindowControls(repository, stored.window)
   controls = windowControls

@@ -6,8 +6,9 @@ import './styles/app.css'
 
 import { NoteStore } from '../core/application/note-store'
 import { dateLabel } from '../core/domain/date-label'
+import { addDays, dayDate, dayKey, dayLabel, pastDays, type DayKey } from '../core/domain/day'
 import type { Note } from '../core/domain/note'
-import { progress, tasksByHour } from '../core/domain/note-operations'
+import { progress, tasksByHour, tasksOf } from '../core/domain/note-operations'
 import { IpcNoteRepository } from './infrastructure/ipc-note-repository'
 import { el } from './ui/dom'
 import { createFooter } from './ui/footer'
@@ -16,6 +17,10 @@ import { createProgress } from './ui/progress'
 import { createTaskList } from './ui/task-list'
 
 const clock = { now: (): Date => new Date() }
+const today = (): DayKey => dayKey(clock.now())
+
+// Día cuya lista se muestra. Al abrir la app es siempre Hoy (no se guarda).
+let activeDay: DayKey = today()
 
 const store = new NoteStore({
   repository: new IpcNoteRepository(),
@@ -42,8 +47,22 @@ function applyCollapsed(): void {
   note.classList.toggle('is-collapsed', collapsed)
 }
 
+function selectDay(day: DayKey): void {
+  if (day === activeDay) return
+  activeDay = day
+  render(store.getNote())
+}
+
 const header = createHeader({
-  onRename: (title) => store.renameNote(title),
+  onSelectDay: selectDay,
+  // Ayer ya tiene su pestaña: el menú lista solo los días anteriores (hoy − 2 a hoy − 5).
+  getPastDays: () => {
+    const todayKey = today()
+    const yesterday = addDays(todayKey, -1)
+    return pastDays(store.getNote(), todayKey)
+      .filter((day) => day !== yesterday)
+      .map((day) => ({ day, label: dayLabel(day, todayKey) }))
+  },
   onTogglePin: () => {
     pinned = !pinned
     applyPinned()
@@ -67,9 +86,9 @@ const header = createHeader({
   }
 })
 const footer = createFooter()
-const progressView = createProgress(dateLabel(clock.now()))
+const progressView = createProgress(dateLabel(dayDate(activeDay)))
 const taskList = createTaskList({
-  onAdd: (text, hour) => store.addTask(text, hour),
+  onAdd: (text, hour) => store.addTask(activeDay, text, hour),
   currentHour: () => clock.now().getHours(),
   onSetTaskHour: (taskId, hour) => store.setTaskHour(taskId, hour),
   onToggleTask: (id) => store.toggleTask(id),
@@ -87,9 +106,12 @@ note.append(header.element, ...progressView.elements, taskList.element, footer.e
 document.getElementById('app')!.append(note)
 
 function render(current: Note): void {
-  header.setTitle(current.title)
-  taskList.render(tasksByHour(current.tasks))
-  const { done, total, percent } = progress(current)
+  const todayKey = today()
+  header.setDays(addDays(todayKey, -1), todayKey, addDays(todayKey, 1), activeDay)
+  progressView.setDate(dateLabel(dayDate(activeDay)))
+  const tasks = tasksOf(current, activeDay)
+  taskList.render(tasksByHour(tasks))
+  const { done, total, percent } = progress(tasks)
   progressView.update(done, total, percent)
 }
 
@@ -98,6 +120,37 @@ render(store.getNote())
 
 // Carga la nota guardada. Si falla, la app sigue con la nota vacía.
 store.load().catch((error) => console.error('No se pudo cargar la nota', error))
+
+// ---------- Cambio de día a las 00:00 ----------
+// Día que la UI considera "Hoy". Se actualiza al dispararse el temporizador.
+let currentDay = today()
+
+/** Milisegundos hasta las próximas 00:00 locales (recalculado en cada disparo: horario de verano). */
+function msUntilMidnight(): number {
+  const now = clock.now()
+  const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
+  return midnight.getTime() - now.getTime()
+}
+
+function onMidnight(): void {
+  const previous = currentDay
+  currentDay = today()
+  if (currentDay !== previous) {
+    // Si se veía el día que acaba de terminar o Mañana, pasa a Hoy. Un día del historial se queda.
+    if (activeDay === previous || activeDay === addDays(previous, 1)) activeDay = currentDay
+    store.rollOver()
+    // Refresca etiquetas y pestañas aunque la rotación no haya cambiado la nota.
+    render(store.getNote())
+  }
+  scheduleMidnight()
+}
+
+function scheduleMidnight(): void {
+  // Si el temporizador se adelanta, `onMidnight` no ve cambio de día y se reprograma.
+  setTimeout(onMidnight, msUntilMidnight() + 1000)
+}
+
+scheduleMidnight()
 
 // Estado guardado de la ventana. La ventana ya se creó con la altura y el "fijado" correctos.
 window.stickyApi
