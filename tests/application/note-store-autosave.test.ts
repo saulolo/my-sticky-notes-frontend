@@ -2,7 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { NoteStore } from '../../src/core/application/note-store'
 import type { NoteRepository } from '../../src/core/application/ports'
 import { createEmptyNote, type Note } from '../../src/core/domain/note'
-import { addTask } from '../../src/core/domain/note-operations'
+import { addTask, tasksOf } from '../../src/core/domain/note-operations'
+
+const D = '2026-11-12'
 
 function setup(options: { failSaves?: boolean } = {}): {
   store: NoteStore
@@ -36,7 +38,7 @@ afterEach(() => {
 describe('NoteStore autoguardado', () => {
   it('no guarda antes de que pasen 300 ms y guarda después', async () => {
     const { store, save } = setup()
-    store.addTask('a')
+    store.addTask(D, 'a')
     await vi.advanceTimersByTimeAsync(299)
     expect(save).not.toHaveBeenCalled()
     await vi.advanceTimersByTimeAsync(1)
@@ -46,22 +48,22 @@ describe('NoteStore autoguardado', () => {
 
   it('varios cambios seguidos se juntan en un solo guardado con el último estado', async () => {
     const { store, save } = setup()
-    store.addTask('a')
+    store.addTask(D, 'a')
     await vi.advanceTimersByTimeAsync(200)
-    store.addTask('b')
+    store.addTask(D, 'b')
     await vi.advanceTimersByTimeAsync(200)
     store.toggleTask('id1')
     await vi.advanceTimersByTimeAsync(300)
 
     expect(save).toHaveBeenCalledTimes(1)
     const saved = save.mock.calls[0][0]
-    expect(saved.tasks.map((t) => t.text)).toEqual(['a', 'b'])
-    expect(saved.tasks[0].done).toBe(true)
+    expect(tasksOf(saved, D).map((t) => t.text)).toEqual(['a', 'b'])
+    expect(tasksOf(saved, D)[0].done).toBe(true)
   })
 
   it('un comando que no cambia nada no programa guardado', async () => {
     const { store, save } = setup()
-    store.addTask('   ')
+    store.addTask(D, '   ')
     await vi.advanceTimersByTimeAsync(1000)
     expect(save).not.toHaveBeenCalled()
   })
@@ -75,7 +77,7 @@ describe('NoteStore autoguardado', () => {
 
   it('flush guarda al instante y cancela el temporizador', async () => {
     const { store, save } = setup()
-    store.addTask('a')
+    store.addTask(D, 'a')
     await store.flush()
     expect(save).toHaveBeenCalledTimes(1)
     await vi.advanceTimersByTimeAsync(1000)
@@ -98,7 +100,7 @@ describe('NoteStore autoguardado', () => {
       clock: { now: () => new Date() },
       newId: () => 'x'
     })
-    store.addTask('a')
+    store.addTask(D, 'a')
     let done = false
     const flushing = store.flush().then(() => (done = true))
     await Promise.resolve()
@@ -110,7 +112,7 @@ describe('NoteStore autoguardado', () => {
 
   it('si falla el guardado avisa por onSaveError y reintenta en el siguiente flush', async () => {
     const { store, save, onSaveError } = setup({ failSaves: true })
-    store.addTask('a')
+    store.addTask(D, 'a')
     await store.flush()
     expect(onSaveError).toHaveBeenCalledTimes(1)
 
@@ -120,7 +122,10 @@ describe('NoteStore autoguardado', () => {
   })
 
   it('guarda la nota cargada más lo nuevo', async () => {
-    const stored = addTask(createEmptyNote(), 'Vieja', { id: 'old', now: new Date(2026, 10, 1, 8) })
+    const stored = addTask(createEmptyNote(), D, 'Vieja', {
+      id: 'old',
+      now: new Date(2026, 10, 1, 8)
+    })
     const save = vi.fn<(note: Note) => Promise<void>>(async () => undefined)
     const store = new NoteStore({
       repository: { load: async () => stored, save },
@@ -128,8 +133,25 @@ describe('NoteStore autoguardado', () => {
       newId: () => 'new'
     })
     await store.load()
-    store.addTask('Nueva')
+    store.addTask(D, 'Nueva')
     await store.flush()
-    expect(save.mock.calls[0][0].tasks.map((t) => t.id)).toEqual(['old', 'new'])
+    expect(tasksOf(save.mock.calls[0][0], D).map((t) => t.id)).toEqual(['old', 'new'])
+  })
+
+  it('load con rotación programa el autoguardado', async () => {
+    const stored = addTask(createEmptyNote(), D, 'Vieja', {
+      id: 'old',
+      now: new Date(2026, 10, 12, 8)
+    })
+    const save = vi.fn<(note: Note) => Promise<void>>(async () => undefined)
+    const store = new NoteStore({
+      repository: { load: async () => stored, save },
+      clock: { now: () => new Date(2026, 10, 13, 9) },
+      newId: () => 'new'
+    })
+    await store.load()
+    await vi.advanceTimersByTimeAsync(300)
+    expect(save).toHaveBeenCalledTimes(1)
+    expect(tasksOf(save.mock.calls[0][0], '2026-11-13').map((t) => t.id)).toEqual(['old'])
   })
 })

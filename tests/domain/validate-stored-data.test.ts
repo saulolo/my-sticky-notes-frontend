@@ -1,37 +1,61 @@
 import { describe, expect, it } from 'vitest'
 import { validateStoredData } from '../../src/core/domain/validate-stored-data'
 
+const TODAY = '2026-11-14'
+
+function task(): Record<string, unknown> {
+  return {
+    id: 't1',
+    hour: 13,
+    text: 'Comprar pan',
+    done: false,
+    createdAt: '2026-11-12T18:40:00.000Z',
+    subtasks: [{ id: 's1', text: 'Integral', done: true }]
+  }
+}
+
 function valid(): Record<string, unknown> {
   return {
-    version: 1,
-    note: {
-      title: 'Today Task',
-      tasks: [
-        {
-          id: 't1',
-          hour: 13,
-          text: 'Comprar pan',
-          done: false,
-          createdAt: '2026-11-12T18:40:00.000Z',
-          subtasks: [{ id: 's1', text: 'Integral', done: true }]
-        }
-      ]
-    },
+    version: 2,
+    note: { days: { '2026-11-14': [task()] } },
     window: { pinned: false, collapsed: false, x: null, y: null }
   }
 }
 
-describe('validateStoredData', () => {
-  it('acepta un archivo válido y lo devuelve intacto', () => {
+function validV1(): Record<string, unknown> {
+  return {
+    version: 1,
+    note: { title: 'Today Task', tasks: [task()] },
+    window: { pinned: false, collapsed: false, x: null, y: null }
+  }
+}
+
+/** Primera tarea del primer día, para aplicarle un parche. */
+function patchTask(data: Record<string, unknown>, patch: Record<string, unknown>): void {
+  const note = data.note as { days: Record<string, Record<string, unknown>[]> }
+  const list = Object.values(note.days)[0]
+  list[0] = { ...list[0], ...patch }
+}
+
+describe('validateStoredData v2', () => {
+  it('acepta un archivo válido y lo devuelve igual', () => {
     const data = valid()
-    expect(validateStoredData(data)).toBe(data)
+    expect(validateStoredData(data, TODAY)).toEqual(data)
   })
 
-  it('acepta nota sin tareas y posición numérica', () => {
+  it('descarta un title sobrante', () => {
     const data = valid()
-    data.note = { title: 'x', tasks: [] }
+    data.note = { title: 'Today Task', days: {} }
+    expect(validateStoredData(data, TODAY)?.note).toEqual({ days: {} })
+  })
+
+  it('acepta nota sin días, días vacíos y posición numérica', () => {
+    const data = valid()
+    data.note = { days: {} }
     data.window = { pinned: true, collapsed: true, x: 100, y: -20 }
-    expect(validateStoredData(data)).not.toBeNull()
+    expect(validateStoredData(data, TODAY)).not.toBeNull()
+    data.note = { days: { '2026-11-13': [] } }
+    expect(validateStoredData(data, TODAY)).not.toBeNull()
   })
 
   it.each([
@@ -40,12 +64,12 @@ describe('validateStoredData', () => {
     ['un string', 'hola'],
     ['un objeto vacío', {}]
   ])('rechaza %s', (_name, value) => {
-    expect(validateStoredData(value)).toBeNull()
+    expect(validateStoredData(value, TODAY)).toBeNull()
   })
 
   it('rechaza una versión desconocida', () => {
-    expect(validateStoredData({ ...valid(), version: 2 })).toBeNull()
-    expect(validateStoredData({ ...valid(), version: '1' })).toBeNull()
+    expect(validateStoredData({ ...valid(), version: 3 }, TODAY)).toBeNull()
+    expect(validateStoredData({ ...valid(), version: '2' }, TODAY)).toBeNull()
   })
 
   it('rechaza si falta la nota o las preferencias de ventana', () => {
@@ -53,8 +77,18 @@ describe('validateStoredData', () => {
     delete noNote.note
     const noWindow = valid()
     delete noWindow.window
-    expect(validateStoredData(noNote)).toBeNull()
-    expect(validateStoredData(noWindow)).toBeNull()
+    expect(validateStoredData(noNote, TODAY)).toBeNull()
+    expect(validateStoredData(noWindow, TODAY)).toBeNull()
+  })
+
+  it.each([
+    ['days ausente', {}],
+    ['days como array', { days: [] }],
+    ['clave de día mal formada', { days: { '14/11/2026': [] } }],
+    ['lista de día que no es array', { days: { '2026-11-14': null } }],
+    ['formato v1 con version 2', { tasks: [] }]
+  ])('rechaza una nota con %s', (_name, note) => {
+    expect(validateStoredData({ ...valid(), note }, TODAY)).toBeNull()
   })
 
   it.each([
@@ -70,16 +104,14 @@ describe('validateStoredData', () => {
     ['collapsed que no es booleano', { collapsed: 'yes' }]
   ])('rechaza una tarea con %s', (_name, patch) => {
     const data = valid()
-    const note = data.note as { tasks: Record<string, unknown>[] }
-    note.tasks[0] = { ...note.tasks[0], ...patch }
-    expect(validateStoredData(data)).toBeNull()
+    patchTask(data, patch)
+    expect(validateStoredData(data, TODAY)).toBeNull()
   })
 
   it.each([true, false])('acepta una tarea con collapsed = %s', (collapsed) => {
     const data = valid()
-    const note = data.note as { tasks: Record<string, unknown>[] }
-    note.tasks[0] = { ...note.tasks[0], collapsed }
-    expect(validateStoredData(data)).not.toBeNull()
+    patchTask(data, { collapsed })
+    expect(validateStoredData(data, TODAY)).not.toBeNull()
   })
 
   it.each([
@@ -90,6 +122,37 @@ describe('validateStoredData', () => {
   ])('rechaza preferencias con %s', (_name, patch) => {
     const data = valid()
     data.window = { ...(data.window as object), ...patch }
-    expect(validateStoredData(data)).toBeNull()
+    expect(validateStoredData(data, TODAY)).toBeNull()
+  })
+})
+
+describe('validateStoredData migración v1', () => {
+  it('devuelve v2 con las tareas en la lista de hoy y sin título', () => {
+    const data = validV1()
+    expect(validateStoredData(data, TODAY)).toEqual({
+      version: 2,
+      note: { days: { [TODAY]: [task()] } },
+      window: { pinned: false, collapsed: false, x: null, y: null }
+    })
+  })
+
+  it('sin tareas deja days vacío', () => {
+    const data = validV1()
+    data.note = { title: 'Compras', tasks: [] }
+    expect(validateStoredData(data, TODAY)?.note).toEqual({ days: {} })
+  })
+
+  it('aplica la validación estricta antes de migrar', () => {
+    const badTask = validV1()
+    ;(badTask.note as { tasks: Record<string, unknown>[] }).tasks[0].hour = 40
+    expect(validateStoredData(badTask, TODAY)).toBeNull()
+
+    const badWindow = validV1()
+    badWindow.window = { pinned: 'no' }
+    expect(validateStoredData(badWindow, TODAY)).toBeNull()
+
+    const v2Note = validV1()
+    v2Note.note = { days: {} }
+    expect(validateStoredData(v2Note, TODAY)).toBeNull()
   })
 })

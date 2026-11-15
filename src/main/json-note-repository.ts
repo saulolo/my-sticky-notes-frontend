@@ -1,5 +1,6 @@
 import { readFile, rename, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
+import type { DayKey } from '../core/domain/day'
 import { createEmptyNote, type Note } from '../core/domain/note'
 import { isNote, validateStoredData } from '../core/domain/validate-stored-data'
 import {
@@ -9,7 +10,7 @@ import {
 } from '../core/domain/window-prefs'
 
 function defaults(): StoredData {
-  return { version: 1, note: createEmptyNote(), window: { ...DEFAULT_WINDOW_PREFS } }
+  return { version: 2, note: createEmptyNote(), window: { ...DEFAULT_WINDOW_PREFS } }
 }
 
 /**
@@ -17,15 +18,18 @@ function defaults(): StoredData {
  * - Escritura atómica: se escribe `note.json.tmp` y luego se renombra.
  * - Archivo corrupto o de versión desconocida: se respalda como
  *   `note.corrupt-<timestamp>.json` y se arranca con los valores por defecto.
+ * - Archivo v1: sus tareas pasan a la lista de `today()`; el siguiente guardado escribe v2.
  */
 export class JsonNoteRepository {
   private readonly filePath: string
+  private readonly today: () => DayKey
   private readonly now: () => Date
   private current: StoredData = defaults()
   private queue: Promise<void> = Promise.resolve()
 
-  constructor(filePath: string, now: () => Date = () => new Date()) {
+  constructor(filePath: string, today: () => DayKey, now: () => Date = () => new Date()) {
     this.filePath = filePath
+    this.today = today
     this.now = now
   }
 
@@ -48,7 +52,7 @@ export class JsonNoteRepository {
       parsed = undefined
     }
 
-    const valid = validateStoredData(parsed)
+    const valid = validateStoredData(parsed, this.today())
     if (valid) {
       this.current = valid
       return valid

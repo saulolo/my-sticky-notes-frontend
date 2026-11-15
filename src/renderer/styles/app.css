@@ -79,8 +79,101 @@ body {
   -webkit-app-region: drag;
 }
 .note-header .ib,
-.note-header .title-in {
+.note-header .day-tab {
   -webkit-app-region: no-drag;
+}
+
+/* Pestañas de día ("Ayer", "Hoy", "Mañana"): no se encogen. */
+.day-tabs {
+  flex: none;
+  display: flex;
+  gap: 2px;
+}
+.day-tab {
+  flex: none;
+  height: 26px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-muted);
+  font: 500 12px/16px var(--font);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+.day-tab:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.day-tab:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.day-tab.is-active {
+  background: var(--bg-on);
+  color: var(--accent);
+}
+
+/* Menú de días anteriores a ayer: cae bajo el botón de historial, sobre la lista. */
+.history-wrap {
+  position: relative;
+  flex: none;
+  display: flex;
+}
+.history-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  /* Se abre hacia la izquierda: hacia la derecha lo recortaría el borde de la nota. */
+  right: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 168px;
+  padding: 4px;
+  box-sizing: border-box;
+  border: 1px solid var(--border-note);
+  border-radius: 10px;
+  background: var(--bg-footer);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  -webkit-app-region: no-drag;
+}
+.history-menu[hidden] {
+  display: none;
+}
+.history-item {
+  height: 30px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-body);
+  font: 400 13px/20px var(--font);
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+.history-item:hover,
+.history-item:focus-visible {
+  background: var(--bg-hover);
+  outline: 0;
+}
+.history-item:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+.history-item.is-active {
+  color: var(--accent);
+}
+.history-empty {
+  padding: 6px 10px;
+  color: var(--text-muted);
+  font-size: 12.5px;
 }
 .divider {
   width: 1px;
@@ -88,22 +181,10 @@ body {
   background: var(--border-divider);
   margin: 0 2px;
 }
-.title-in {
+/* Ocupa el hueco entre pestañas y botones; sigue siendo zona de arrastre. */
+.header-spacer {
   flex: 1;
-  min-width: 0;
-  border: 0;
-  outline: 0;
-  background: transparent;
-  font: 600 14px/20px var(--font);
-  color: var(--text-primary);
-  padding: 4px 6px;
-  border-radius: 6px;
-}
-.title-in:hover {
-  background: var(--bg-hover-soft);
-}
-.title-in:focus {
-  background: var(--bg-track);
+  align-self: stretch;
 }
 
 /* ---------- Progreso ---------- */

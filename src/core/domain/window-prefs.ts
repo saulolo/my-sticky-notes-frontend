@@ -17,9 +17,9 @@ export const DEFAULT_WINDOW_PREFS: WindowPrefs = {
   y: null
 }
 
-/** Formato del archivo en disco. */
+/** Formato del archivo en disco. La v1 (una sola lista `note.tasks`) se migra al leer. */
 export interface StoredData {
-  version: 1
+  version: 2
   note: Note
   window: WindowPrefs
 }

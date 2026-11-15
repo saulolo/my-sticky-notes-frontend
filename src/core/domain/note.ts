@@ -1,3 +1,5 @@
+import type { DayKey } from './day'
+
 export interface Subtask {
   id: string
   /** No vacío, sin espacios en los extremos. */
@@ -19,12 +21,13 @@ export interface Task {
 }
 
 export interface Note {
-  title: string
-  /** Orden de inserción: las nuevas van al final. La UI las muestra ordenadas por hora. */
-  tasks: Task[]
+  /**
+   * Una lista por día. Día sin entrada = lista vacía. Dentro de cada día, orden de inserción
+   * (las nuevas van al final); la UI las muestra ordenadas por hora. Los `id` son únicos en
+   * toda la nota.
+   */
+  days: Record<DayKey, Task[]>
 }
-
-export const DEFAULT_TITLE = 'Today Task'
 
 /** Hora válida de una tarea: entero de 0 a 23. */
 export function isValidHour(value: unknown): value is number {
@@ -44,5 +47,5 @@ export function parseHour(input: string): number | undefined | null {
 }
 
 export function createEmptyNote(): Note {
-  return { title: DEFAULT_TITLE, tasks: [] }
+  return { days: {} }
 }
