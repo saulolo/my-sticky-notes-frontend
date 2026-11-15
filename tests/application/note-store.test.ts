@@ -41,6 +41,22 @@ describe('NoteStore', () => {
     expect(store.getNote().tasks.map((t) => t.hour)).toEqual([9, 17])
   })
 
+  it('addTask con hora manual la usa en vez del Clock; inválida devuelve false', () => {
+    const { store } = setup(13)
+    expect(store.addTask('a', 9)).toBe(true)
+    expect(store.addTask('b', 24)).toBe(false)
+    expect(store.getNote().tasks.map((t) => t.hour)).toEqual([9])
+  })
+
+  it('setTaskHour cambia la hora y devuelve false si no cambia nada', () => {
+    const { store } = setup(13)
+    store.addTask('a')
+    expect(store.setTaskHour('id1', 6)).toBe(true)
+    expect(store.getNote().tasks[0].hour).toBe(6)
+    expect(store.setTaskHour('id1', 6)).toBe(false)
+    expect(store.setTaskHour('id1', 30)).toBe(false)
+  })
+
   it('texto vacío devuelve false y no avisa a los suscriptores', () => {
     const { store } = setup()
     const listener = vi.fn()

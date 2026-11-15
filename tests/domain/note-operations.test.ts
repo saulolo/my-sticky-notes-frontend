@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createEmptyNote, type Note } from '../../src/core/domain/note'
+import { createEmptyNote, parseHour, type Note } from '../../src/core/domain/note'
 import {
   addSubtask,
   addTask,
@@ -9,7 +9,10 @@ import {
   editTask,
   progress,
   renameNote,
+  setTaskHour,
+  tasksByHour,
   toggleSubtask,
+  toggleSubtasksCollapsed,
   toggleTask
 } from '../../src/core/domain/note-operations'
 
@@ -66,6 +69,82 @@ describe('addTask', () => {
   })
 })
 
+describe('addTask con hora manual', () => {
+  it('usa la hora indicada en vez de la del reloj', () => {
+    const note = addTask(createEmptyNote(), 'Comprar pan', { id: 't1', now: at(13, 40) }, 9)
+    expect(note.tasks[0].hour).toBe(9)
+  })
+
+  it('acepta los extremos 0 y 23', () => {
+    let note = addTask(createEmptyNote(), 'a', { id: 'a', now: at(12) }, 0)
+    note = addTask(note, 'b', { id: 'b', now: at(12) }, 23)
+    expect(note.tasks.map((t) => t.hour)).toEqual([0, 23])
+  })
+
+  it.each([24, -1, 9.5, NaN])('no crea la tarea con hora inválida (%j)', (hour) => {
+    const empty = createEmptyNote()
+    expect(addTask(empty, 'x', { id: 't1', now: at(8) }, hour)).toBe(empty)
+  })
+})
+
+describe('setTaskHour', () => {
+  it('cambia la hora de la tarea', () => {
+    expect(setTaskHour(noteWith(), 't1', 7).tasks[0].hour).toBe(7)
+  })
+
+  it('hora inválida, igual o id inexistente no cambian nada', () => {
+    const note = noteWith()
+    expect(setTaskHour(note, 't1', 24)).toBe(note)
+    expect(setTaskHour(note, 't1', 2.5)).toBe(note)
+    expect(setTaskHour(note, 't1', 13)).toBe(note)
+    expect(setTaskHour(note, 'nope', 5)).toBe(note)
+  })
+})
+
+describe('tasksByHour', () => {
+  it('ordena de menor a mayor hora', () => {
+    let note = addTask(createEmptyNote(), 'a', { id: 'a', now: at(8) }, 15)
+    note = addTask(note, 'b', { id: 'b', now: at(8) }, 8)
+    note = addTask(note, 'c', { id: 'c', now: at(8) }, 12)
+    expect(tasksByHour(note.tasks).map((t) => t.hour)).toEqual([8, 12, 15])
+  })
+
+  it('a igual hora desempata por createdAt y luego por inserción', () => {
+    let note = addTask(createEmptyNote(), 'tarde', { id: 'a', now: at(10, 30) }, 9)
+    note = addTask(note, 'temprano', { id: 'b', now: at(10, 5) }, 9)
+    note = addTask(note, 'empate', { id: 'c', now: at(10, 30) }, 9)
+    expect(tasksByHour(note.tasks).map((t) => t.id)).toEqual(['b', 'a', 'c'])
+  })
+
+  it('no muta la lista original', () => {
+    const note = noteWith()
+    const ids = note.tasks.map((t) => t.id)
+    tasksByHour(note.tasks)
+    expect(note.tasks.map((t) => t.id)).toEqual(ids)
+  })
+})
+
+describe('parseHour', () => {
+  it('vacío = undefined (hora actual)', () => {
+    expect(parseHour('')).toBeUndefined()
+    expect(parseHour('  ')).toBeUndefined()
+  })
+
+  it.each([
+    ['0', 0],
+    ['9', 9],
+    [' 13 ', 13],
+    ['07', 7],
+    ['23', 23]
+  ])('lee %j como %d', (input, hour) => {
+    expect(parseHour(input)).toBe(hour)
+  })
+
+  it.each(['24', '-1', '9.5', 'a', '1e1', '123'])('%j es inválida (null)', (input) => {
+    expect(parseHour(input)).toBeNull()
+  })
+})
+
 describe('addSubtask', () => {
   it('agrega la subtarea sin hora al final de su tarea', () => {
     const note = noteWith()
@@ -79,6 +158,31 @@ describe('addSubtask', () => {
     const note = noteWith()
     expect(addSubtask(note, 't1', '  ', 's9')).toBe(note)
     expect(addSubtask(note, 'nope', 'x', 's9')).toBe(note)
+  })
+})
+
+describe('toggleSubtasksCollapsed', () => {
+  it('contrae y vuelve a expandir', () => {
+    const note = toggleSubtasksCollapsed(noteWith(), 't1')
+    expect(note.tasks[0].collapsed).toBe(true)
+    expect(toggleSubtasksCollapsed(note, 't1').tasks[0].collapsed).toBe(false)
+  })
+
+  it('una tarea sin subtareas o inexistente no cambia', () => {
+    const note = noteWith()
+    expect(toggleSubtasksCollapsed(note, 't2')).toBe(note)
+    expect(toggleSubtasksCollapsed(note, 'nope')).toBe(note)
+  })
+
+  it('agregar una subtarea expande la tarea', () => {
+    const note = addSubtask(toggleSubtasksCollapsed(noteWith(), 't1'), 't1', 'Otra', 's3')
+    expect(note.tasks[0].collapsed).toBe(false)
+    expect(note.tasks[0].subtasks).toHaveLength(3)
+  })
+
+  it('no cambia el progreso', () => {
+    const note = noteWith()
+    expect(progress(toggleSubtasksCollapsed(note, 't1'))).toEqual(progress(note))
   })
 })
 

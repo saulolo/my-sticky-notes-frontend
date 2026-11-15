@@ -69,10 +69,15 @@ export class NoteStore {
     return this.change((n) => ops.renameNote(n, title))
   }
 
-  addTask(text: string): boolean {
+  /** `hour` opcional (entero 0–23); sin ella se usa la hora del Clock. */
+  addTask(text: string, hour?: number): boolean {
     return this.change((n) =>
-      ops.addTask(n, text, { id: this.deps.newId(), now: this.deps.clock.now() })
+      ops.addTask(n, text, { id: this.deps.newId(), now: this.deps.clock.now() }, hour)
     )
+  }
+
+  setTaskHour(taskId: string, hour: number): boolean {
+    return this.change((n) => ops.setTaskHour(n, taskId, hour))
   }
 
   addSubtask(taskId: string, text: string): boolean {
@@ -81,6 +86,10 @@ export class NoteStore {
 
   toggleTask(taskId: string): boolean {
     return this.change((n) => ops.toggleTask(n, taskId))
+  }
+
+  toggleSubtasksCollapsed(taskId: string): boolean {
+    return this.change((n) => ops.toggleSubtasksCollapsed(n, taskId))
   }
 
   toggleSubtask(taskId: string, subtaskId: string): boolean {

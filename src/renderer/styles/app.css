@@ -227,12 +227,70 @@ body {
   line-height: 16px;
   font-variant-numeric: tabular-nums;
 }
+.task-row > .time {
+  cursor: text;
+}
+/* Input que reemplaza a la etiqueta de hora (doble clic). */
+.hour-edit {
+  flex: none;
+  width: 22px;
+  margin-top: 1px;
+  padding: 1px 6px;
+  border: 0;
+  outline: 1px solid var(--accent);
+  border-radius: 5px;
+  background: var(--bg-track);
+  color: var(--text-body);
+  font: 500 11px/16px var(--font);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
 .task-text {
   flex: 1;
   min-width: 0;
   font-size: 13.5px;
   line-height: 20px;
   overflow-wrap: anywhere;
+}
+
+/* Contraer/expandir subtareas: chevron + cantidad. */
+.sub-toggle {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 20px;
+  padding: 0 5px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-muted);
+  font: 500 11px/16px var(--font);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    margin 0.15s ease;
+}
+.sub-toggle:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.sub-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.sub-toggle svg {
+  transition: transform 0.15s ease;
+}
+.sub-toggle.is-collapsed svg {
+  transform: rotate(-90deg);
+}
+/* Deja sitio a los botones "+" y papelera que aparecen al pasar el mouse. */
+.task-row:hover .sub-toggle,
+.task-row:focus-within .sub-toggle {
+  margin-right: 46px;
 }
 
 /* Acciones al pasar el mouse: flotan a la derecha para no alterar el reposo. */
@@ -372,6 +430,29 @@ body {
 }
 .add-in::placeholder {
   color: var(--text-placeholder);
+}
+/* Hora de la nueva tarea (0–23). Vacío = hora actual (placeholder). */
+.hour-in {
+  flex: none;
+  width: 22px;
+  padding: 1px 6px;
+  border: 0;
+  outline: 0;
+  border-radius: 5px;
+  background: var(--bg-track);
+  color: var(--text-body);
+  font: 500 11px/16px var(--font);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.hour-in::placeholder {
+  color: var(--text-placeholder);
+}
+.hour-in:focus {
+  outline: 1px solid var(--accent);
+}
+.hour-in.is-invalid {
+  outline: 1px solid var(--bg-close-hover);
 }
 .kbd {
   flex: none;

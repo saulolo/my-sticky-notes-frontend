@@ -66,12 +66,20 @@ describe('validateStoredData', () => {
     ['done que no es booleano', { done: 'yes' }],
     ['id que no es texto', { id: 7 }],
     ['subtareas que no son un array', { subtasks: null }],
-    ['subtarea mal formada', { subtasks: [{ id: 's', text: '', done: false }] }]
+    ['subtarea mal formada', { subtasks: [{ id: 's', text: '', done: false }] }],
+    ['collapsed que no es booleano', { collapsed: 'yes' }]
   ])('rechaza una tarea con %s', (_name, patch) => {
     const data = valid()
     const note = data.note as { tasks: Record<string, unknown>[] }
     note.tasks[0] = { ...note.tasks[0], ...patch }
     expect(validateStoredData(data)).toBeNull()
+  })
+
+  it.each([true, false])('acepta una tarea con collapsed = %s', (collapsed) => {
+    const data = valid()
+    const note = data.note as { tasks: Record<string, unknown>[] }
+    note.tasks[0] = { ...note.tasks[0], collapsed }
+    expect(validateStoredData(data)).not.toBeNull()
   })
 
   it.each([

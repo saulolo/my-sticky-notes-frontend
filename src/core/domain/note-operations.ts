@@ -1,4 +1,4 @@
-import type { Note, Subtask, Task } from './note'
+import { isValidHour, type Note, type Subtask, type Task } from './note'
 
 // Funciones puras e inmutables: reciben un Note y devuelven uno nuevo.
 // Si la operación no cambia nada (texto vacío, id inexistente) devuelven el mismo Note.
@@ -42,12 +42,22 @@ function mapSubtask(
   })
 }
 
-export function addTask(note: Note, text: string, { id, now }: NewItemContext): Note {
+/**
+ * `hour` es la hora que fija el usuario (entero 0–23). Si falta, se usa la de `now`.
+ * Una hora inválida no crea la tarea.
+ */
+export function addTask(
+  note: Note,
+  text: string,
+  { id, now }: NewItemContext,
+  hour?: number
+): Note {
   const trimmed = clean(text)
   if (!trimmed) return note
+  if (hour !== undefined && !isValidHour(hour)) return note
   const task: Task = {
     id,
-    hour: now.getHours(),
+    hour: hour ?? now.getHours(),
     text: trimmed,
     done: false,
     subtasks: [],
@@ -59,10 +69,19 @@ export function addTask(note: Note, text: string, { id, now }: NewItemContext): 
 export function addSubtask(note: Note, taskId: string, text: string, id: string): Note {
   const trimmed = clean(text)
   if (!trimmed) return note
+  // Agregar una subtarea expande la tarea, para que la nueva subtarea se vea.
   return mapTask(note, taskId, (task) => ({
     ...task,
-    subtasks: [...task.subtasks, { id, text: trimmed, done: false }]
+    subtasks: [...task.subtasks, { id, text: trimmed, done: false }],
+    ...(task.collapsed ? { collapsed: false } : {})
   }))
+}
+
+/** Contrae o expande las subtareas. Una tarea sin subtareas no cambia. */
+export function toggleSubtasksCollapsed(note: Note, taskId: string): Note {
+  return mapTask(note, taskId, (task) =>
+    task.subtasks.length === 0 ? task : { ...task, collapsed: !task.collapsed }
+  )
 }
 
 export function toggleTask(note: Note, taskId: string): Note {
@@ -86,6 +105,23 @@ export function editSubtask(note: Note, taskId: string, subtaskId: string, text:
   if (!trimmed) return note
   return mapSubtask(note, taskId, subtaskId, (sub) =>
     sub.text === trimmed ? sub : { ...sub, text: trimmed }
+  )
+}
+
+/** Una hora inválida se ignora y se conserva la anterior. */
+export function setTaskHour(note: Note, taskId: string, hour: number): Note {
+  if (!isValidHour(hour)) return note
+  return mapTask(note, taskId, (task) => (task.hour === hour ? task : { ...task, hour }))
+}
+
+/**
+ * Copia de las tareas ordenada por hora ascendente; a igual hora, por `createdAt`
+ * y luego por orden de inserción (el sort es estable). No muta la lista original.
+ */
+export function tasksByHour(tasks: readonly Task[]): Task[] {
+  return [...tasks].sort(
+    (a, b) =>
+      a.hour - b.hour || (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0)
   )
 }
 
