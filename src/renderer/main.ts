@@ -7,7 +7,7 @@ import './styles/app.css'
 import { NoteStore } from '../core/application/note-store'
 import { dateLabel } from '../core/domain/date-label'
 import type { Note } from '../core/domain/note'
-import { progress } from '../core/domain/note-operations'
+import { progress, tasksByHour } from '../core/domain/note-operations'
 import { IpcNoteRepository } from './infrastructure/ipc-note-repository'
 import { el } from './ui/dom'
 import { createFooter } from './ui/footer'
@@ -69,10 +69,13 @@ const header = createHeader({
 const footer = createFooter()
 const progressView = createProgress(dateLabel(clock.now()))
 const taskList = createTaskList({
-  onAdd: (text) => store.addTask(text),
+  onAdd: (text, hour) => store.addTask(text, hour),
+  currentHour: () => clock.now().getHours(),
+  onSetTaskHour: (taskId, hour) => store.setTaskHour(taskId, hour),
   onToggleTask: (id) => store.toggleTask(id),
   onAddSubtask: (taskId, text) => store.addSubtask(taskId, text),
   onToggleSubtask: (taskId, subtaskId) => store.toggleSubtask(taskId, subtaskId),
+  onToggleSubtasksCollapsed: (taskId) => store.toggleSubtasksCollapsed(taskId),
   onEditTask: (taskId, text) => store.editTask(taskId, text),
   onEditSubtask: (taskId, subtaskId, text) => store.editSubtask(taskId, subtaskId, text),
   onDeleteTask: (taskId) => store.deleteTask(taskId),
@@ -85,7 +88,7 @@ document.getElementById('app')!.append(note)
 
 function render(current: Note): void {
   header.setTitle(current.title)
-  taskList.render(current.tasks)
+  taskList.render(tasksByHour(current.tasks))
   const { done, total, percent } = progress(current)
   progressView.update(done, total, percent)
 }

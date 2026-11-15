@@ -1,4 +1,4 @@
-import type { Subtask, Task } from '../../core/domain/note'
+import { parseHour, type Subtask, type Task } from '../../core/domain/note'
 import { createAddRow } from './add-row'
 import { el } from './dom'
 import { icons } from './icons'
@@ -9,10 +9,13 @@ export interface TaskListView {
 }
 
 export interface TaskListHandlers {
-  onAdd(text: string): boolean
+  onAdd(text: string, hour: number | undefined): boolean
+  currentHour(): number
+  onSetTaskHour(taskId: string, hour: number): boolean
   onToggleTask(taskId: string): void
   onAddSubtask(taskId: string, text: string): boolean
   onToggleSubtask(taskId: string, subtaskId: string): void
+  onToggleSubtasksCollapsed(taskId: string): void
   onEditTask(taskId: string, text: string): boolean
   onEditSubtask(taskId: string, subtaskId: string, text: string): boolean
   onDeleteTask(taskId: string): void
@@ -23,6 +26,14 @@ export interface TaskListHandlers {
 interface EditTarget {
   taskId: string
   subtaskId: string | null
+}
+
+/** Botón para contraer/expandir las subtareas: chevron + cantidad de subtareas. */
+function subToggleHtml(task: Task): string {
+  if (task.subtasks.length === 0) return ''
+  const collapsed = task.collapsed === true
+  const label = collapsed ? 'Expandir subtareas' : 'Contraer subtareas'
+  return `<button class="sub-toggle${collapsed ? ' is-collapsed' : ''}" type="button" aria-expanded="${!collapsed}" aria-label="${label}" title="${label}">${icons.chevronDown(12)}<span>${task.subtasks.length}</span></button>`
 }
 
 function actionsHtml(deleteClass: string, deleteLabel: string, withAddSubtask: boolean): string {
@@ -39,13 +50,15 @@ function actionsHtml(deleteClass: string, deleteLabel: string, withAddSubtask: b
 
 export function createTaskList(handlers: TaskListHandlers): TaskListView {
   const element = el(`<div class="scroll"></div>`)
-  const addRow = createAddRow({ onAdd: handlers.onAdd })
+  const addRow = createAddRow({ onAdd: handlers.onAdd, currentHour: handlers.currentHour })
   element.append(addRow)
 
   let lastTasks: Task[] = []
   /** Tarea que tiene abierto el input de nueva subtarea (solo una a la vez). */
   let addingSubtaskFor: string | null = null
   let editing: EditTarget | null = null
+  /** Tarea cuya hora se está editando (doble clic sobre la etiqueta). */
+  let editingHourFor: string | null = null
 
   // Cada fila se reconstruye solo si cambió. Así un blur no destruye los botones de
   // otras filas antes de que llegue el clic, ni se pierde el foco de un input abierto.
@@ -94,6 +107,40 @@ export function createTaskList(handlers: TaskListHandlers): TaskListView {
     return input
   }
 
+  /**
+   * Input que reemplaza a la etiqueta de hora. Enter o perder el foco guardan, Esc cancela.
+   * Vacío o inválido conserva la hora anterior.
+   */
+  function createHourInput(task: Task): HTMLInputElement {
+    const input = el<HTMLInputElement>(
+      `<input class="hour-edit" aria-label="Editar hora (0 a 23)" inputmode="numeric" maxlength="2" />`
+    )
+    input.value = String(task.hour)
+    let settled = false
+
+    const finish = (save: boolean): void => {
+      settled = true
+      const hour = parseHour(input.value)
+      editingHourFor = null
+      render(lastTasks)
+      if (save && typeof hour === 'number') handlers.onSetTaskHour(task.id, hour)
+    }
+
+    input.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault()
+        finish(true)
+      } else if (event.key === 'Escape') {
+        event.preventDefault()
+        finish(false)
+      }
+    })
+    input.addEventListener('blur', () => {
+      if (!settled) finish(true)
+    })
+    return input
+  }
+
   function createSubtaskInput(taskId: string): HTMLElement {
     const row = el(`
       <div class="row sub-add">
@@ -106,10 +153,10 @@ export function createTaskList(handlers: TaskListHandlers): TaskListView {
       if (event.key === 'Enter') {
         event.preventDefault()
         if (!input.value.trim()) return
+        // Guarda y deja abierto un input vacío para la siguiente subtarea.
         settled = true
-        addingSubtaskFor = null
-        render(lastTasks)
         handlers.onAddSubtask(taskId, input.value)
+        focusInput('.sub-in')
       } else if (event.key === 'Escape') {
         event.preventDefault()
         settled = true
@@ -136,7 +183,7 @@ export function createTaskList(handlers: TaskListHandlers): TaskListView {
       <div class="row sub-row">
         <button class="check sm${subtask.done ? ' is-on' : ''}" type="button" aria-label="Marcar subtarea" aria-pressed="${subtask.done}">${subtask.done ? icons.check(10) : ''}</button>
         <span class="txt sub-text${subtask.done ? ' is-done' : ''}"></span>
-        ${isEdit ? '' : actionsHtml('delete-sub', 'Eliminar subtarea', false)}
+        ${isEdit ? '' : actionsHtml('delete-sub', 'Eliminar subtarea', true)}
       </div>`)
     row.dataset.subtaskId = subtask.id
     const text = row.querySelector('.sub-text')!
@@ -161,11 +208,14 @@ export function createTaskList(handlers: TaskListHandlers): TaskListView {
           <button class="check${task.done ? ' is-on' : ''}" type="button" aria-label="Marcar tarea" aria-pressed="${task.done}">${task.done ? icons.check(12) : ''}</button>
           <span class="txt time${doneCls}"></span>
           <span class="txt task-text${doneCls}"></span>
+          ${subToggleHtml(task)}
           ${isEdit ? '' : actionsHtml('delete-task', 'Eliminar tarea', true)}
         </div>
       </div>`)
     row.dataset.taskId = task.id
-    row.querySelector('.time')!.textContent = String(task.hour)
+    const time = row.querySelector('.time')!
+    if (editingHourFor === task.id) time.replaceWith(createHourInput(task))
+    else time.textContent = String(task.hour)
     const text = row.querySelector('.task-text')!
     if (isEdit) {
       text.replaceWith(
@@ -176,9 +226,10 @@ export function createTaskList(handlers: TaskListHandlers): TaskListView {
     }
 
     const adding = addingSubtaskFor === task.id
-    if (task.subtasks.length > 0 || adding) {
+    const showSubtasks = task.subtasks.length > 0 && !task.collapsed
+    if (showSubtasks || adding) {
       const block = el(`<div class="subtasks"></div>`)
-      block.append(...task.subtasks.map((sub) => createSubtaskRow(task, sub)))
+      if (showSubtasks) block.append(...task.subtasks.map((sub) => createSubtaskRow(task, sub)))
       if (adding) block.append(createSubtaskInput(task.id))
       row.append(block)
     }
@@ -189,12 +240,14 @@ export function createTaskList(handlers: TaskListHandlers): TaskListView {
     lastTasks = tasks
     if (addingSubtaskFor && !tasks.some((t) => t.id === addingSubtaskFor)) addingSubtaskFor = null
     if (editing && !tasks.some((t) => t.id === editing?.taskId)) editing = null
+    if (editingHourFor && !tasks.some((t) => t.id === editingHourFor)) editingHourFor = null
 
     const nodes = tasks.map((task) => {
       const key = JSON.stringify([
         task,
         addingSubtaskFor === task.id,
-        editing?.taskId === task.id ? (editing.subtaskId ?? '') : null
+        editing?.taskId === task.id ? (editing.subtaskId ?? '') : null,
+        editingHourFor === task.id
       ])
       const cached = rowCache.get(task.id)
       if (cached && cached.key === key) return cached.node
@@ -235,7 +288,13 @@ export function createTaskList(handlers: TaskListHandlers): TaskListView {
       handlers.onToggleTask(taskId)
     } else if (target.closest('.sub-row > .check') && subtaskId) {
       handlers.onToggleSubtask(taskId, subtaskId)
+    } else if (target.closest('.sub-toggle')) {
+      handlers.onToggleSubtasksCollapsed(taskId)
     } else if (target.closest('.add-sub')) {
+      // Si estaban contraídas, se expanden para ver dónde cae la nueva subtarea.
+      if (lastTasks.find((t) => t.id === taskId)?.collapsed) {
+        handlers.onToggleSubtasksCollapsed(taskId)
+      }
       addingSubtaskFor = taskId
       render(lastTasks)
       focusInput('.sub-in')
@@ -258,6 +317,11 @@ export function createTaskList(handlers: TaskListHandlers): TaskListView {
       editing = { taskId, subtaskId }
     } else if (target.closest('.task-text')) {
       editing = { taskId, subtaskId: null }
+    } else if (target.closest('.task-row > .time')) {
+      editingHourFor = taskId
+      render(lastTasks)
+      focusInput('.hour-edit')
+      return
     } else {
       return
     }

@@ -1,4 +1,4 @@
-import type { Note, Subtask, Task } from './note'
+import { isValidHour, type Note, type Subtask, type Task } from './note'
 import type { StoredData, WindowPrefs } from './window-prefs'
 
 type Obj = Record<string, unknown>
@@ -21,14 +21,12 @@ function isTask(value: unknown): value is Task {
   return (
     isObj(value) &&
     typeof value.id === 'string' &&
-    typeof value.hour === 'number' &&
-    Number.isInteger(value.hour) &&
-    value.hour >= 0 &&
-    value.hour <= 23 &&
+    isValidHour(value.hour) &&
     typeof value.text === 'string' &&
     value.text.trim() !== '' &&
     typeof value.done === 'boolean' &&
     typeof value.createdAt === 'string' &&
+    (value.collapsed === undefined || typeof value.collapsed === 'boolean') &&
     Array.isArray(value.subtasks) &&
     value.subtasks.every(isSubtask)
   )
