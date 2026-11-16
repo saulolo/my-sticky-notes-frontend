@@ -10,9 +10,11 @@ export const IPC = {
   windowGetPrefs: 'window:get-prefs',
   windowSetPinned: 'window:set-pinned',
   windowSetCollapsed: 'window:set-collapsed',
+  windowSetAlwaysOnTop: 'window:set-always-on-top',
   windowResizeStart: 'window:resize-start',
   windowResizeMove: 'window:resize-move',
   windowResizeEnd: 'window:resize-end',
+  windowMinimize: 'window:minimize',
   windowClose: 'window:close'
 } as const
 
@@ -42,6 +44,9 @@ export function registerIpc(repository: JsonNoteRepository, controls: WindowCont
   ipcMain.handle(IPC.windowSetCollapsed, (_event, collapsed: unknown): void =>
     controls.setCollapsed(assertBoolean(collapsed))
   )
+  ipcMain.handle(IPC.windowSetAlwaysOnTop, (_event, alwaysOnTop: unknown): void =>
+    controls.setAlwaysOnTop(assertBoolean(alwaysOnTop))
+  )
   // Arrastre de los bordes: mensajes sin respuesta (uno por pointermove).
   ipcMain.on(IPC.windowResizeStart, (_event, edge: unknown, screenY: unknown): void =>
     controls.startResize(assertEdge(edge), assertScreenY(screenY))
@@ -50,6 +55,7 @@ export function registerIpc(repository: JsonNoteRepository, controls: WindowCont
     controls.moveResize(assertScreenY(screenY))
   )
   ipcMain.on(IPC.windowResizeEnd, (): void => controls.endResize())
+  ipcMain.on(IPC.windowMinimize, (): void => controls.minimize())
   // El renderer ya hizo flush de la nota. Antes de salir, `before-quit` espera las escrituras.
   ipcMain.handle(IPC.windowClose, (): void => app.quit())
 }

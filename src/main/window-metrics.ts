@@ -4,7 +4,10 @@ import { MIN_NOTE_HEIGHT } from '../core/domain/window-prefs'
 
 export { MIN_NOTE_HEIGHT }
 
-export const NOTE_WIDTH = 308
+/** Ancho de la nota libre. */
+export const FREE_NOTE_WIDTH = 360
+/** Ancho de la nota anclada. */
+export const DOCKED_NOTE_WIDTH = 308
 
 /** Alto libre de la nota (sin márgenes) cuando `WindowPrefs.height` es null. */
 export const DEFAULT_NOTE_HEIGHT = 538
@@ -23,7 +26,8 @@ export const SHADOW_MARGIN = { top: 0, right: 60, bottom: 84, left: 60 }
  */
 export const DOCKED_MARGIN = { top: 0, right: 0, bottom: 0, left: 60 }
 
-export const WINDOW_WIDTH = NOTE_WIDTH + SHADOW_MARGIN.left + SHADOW_MARGIN.right
+/** Ventana libre: 360 + 60 + 60 = 480. */
+export const WINDOW_WIDTH = FREE_NOTE_WIDTH + SHADOW_MARGIN.left + SHADOW_MARGIN.right
 
 const HEADER_HEIGHT = 46
 /** Nota colapsada: cabecera (46) + borde de la nota (2) + márgenes. */
@@ -44,7 +48,7 @@ export interface Rect {
  * así se detecta una posición guardada que quedó fuera tras quitar un monitor.
  */
 export function isHeaderVisible(x: number, y: number, workAreas: Rect[]): boolean {
-  const px = x + SHADOW_MARGIN.left + NOTE_WIDTH / 2
+  const px = x + SHADOW_MARGIN.left + FREE_NOTE_WIDTH / 2
   const py = y + SHADOW_MARGIN.top + HEADER_HEIGHT / 2
   return workAreas.some(
     (area) => px >= area.x && px < area.x + area.width && py >= area.y && py < area.y + area.height
@@ -75,7 +79,7 @@ export function pickDockDisplay<D extends DisplayInfo>(displays: D[], primaryId:
  * Colapsada, la cabecera queda arriba del área útil.
  */
 export function dockedBounds(workArea: Rect, collapsed: boolean): Rect {
-  const width = NOTE_WIDTH + DOCKED_MARGIN.left + DOCKED_MARGIN.right
+  const width = DOCKED_NOTE_WIDTH + DOCKED_MARGIN.left + DOCKED_MARGIN.right
   const noteHeight = collapsed ? COLLAPSED_NOTE_HEIGHT : workArea.height
   return {
     x: workArea.x + workArea.width - width,
@@ -108,7 +112,8 @@ export function maxFreeNoteHeight(workArea: Rect): number {
 /**
  * Ventana libre: mueve (y si hace falta acorta) la ventana para que quepa en vertical en el
  * área útil: el borde superior de la ventana y el inferior de la nota quedan dentro
- * (la sombra inferior sí puede salir). Solo cambia `y` y `height`.
+ * (la sombra inferior sí puede salir). Si la nota se sale por la derecha (p. ej. al pasar de
+ * 308 a 360 px), se corre a la izquierda hasta caber (la sombra derecha sí puede salir).
  */
 export function fitFreeBounds(rect: Rect, workArea: Rect): Rect {
   const { top, bottom } = SHADOW_MARGIN
@@ -117,7 +122,11 @@ export function fitFreeBounds(rect: Rect, workArea: Rect): Rect {
   let y = rect.y
   if (y + top + noteHeight > areaBottom) y = areaBottom - noteHeight - top
   if (y < workArea.y) y = workArea.y
-  return { ...rect, y, height: noteHeight + top + bottom }
+  let x = rect.x
+  const noteRight = x + rect.width - SHADOW_MARGIN.right
+  const areaRight = workArea.x + workArea.width
+  if (noteRight > areaRight) x -= noteRight - areaRight
+  return { ...rect, x, y, height: noteHeight + top + bottom }
 }
 
 /**

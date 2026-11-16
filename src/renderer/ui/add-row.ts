@@ -12,9 +12,20 @@ export interface AddRowHandlers {
   currentHour(): number
 }
 
-export function createAddRow({ onAdd, currentHour }: AddRowHandlers): HTMLElement {
+export interface AddRowView {
+  element: HTMLElement
+  /** Muestra la fila (oculta por defecto) con el foco en la hora. */
+  open(): void
+}
+
+/**
+ * Fila para añadir tareas. Oculta por defecto: la abre el "+" de la cabecera.
+ * Enter crea la tarea y deja el foco en la siguiente; perder el foco o Esc la ocultan
+ * y descartan lo escrito sin Enter.
+ */
+export function createAddRow({ onAdd, currentHour }: AddRowHandlers): AddRowView {
   const row = el(`
-    <div class="add-row">
+    <div class="add-row" hidden>
       <button class="add-btn" type="button" aria-label="Añadir tarea">${icons.plus(12, 2.5)}</button>
       <input class="hour-in" aria-label="Hora de la tarea (0 a 23)" title="Hora (0–23). Vacío = hora actual" inputmode="numeric" maxlength="2" />
       <input class="add-in" aria-label="Nueva tarea" placeholder="Añadir nueva tarea…" />
@@ -48,15 +59,31 @@ export function createAddRow({ onAdd, currentHour }: AddRowHandlers): HTMLElemen
     }
   }
 
+  const close = (): void => {
+    input.value = ''
+    hourInput.value = ''
+    hourInput.classList.remove('is-invalid')
+    row.hidden = true
+  }
+
   button.addEventListener('click', submit)
   for (const field of [hourInput, input]) {
     field.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
         event.preventDefault()
         submit()
+      } else if (event.key === 'Escape') {
+        event.preventDefault()
+        // Al ocultarla, el foco sale de la fila; `close` ya la dejó vacía.
+        close()
       }
     })
   }
+  // El foco sale de la fila (clic fuera, otra ventana): se oculta.
+  row.addEventListener('focusout', (event) => {
+    const next = event.relatedTarget as Node | null
+    if (!next || !row.contains(next)) close()
+  })
   hourInput.addEventListener('input', () => hourInput.classList.remove('is-invalid'))
   row.addEventListener('focusin', refreshPlaceholder)
   // Clic en la zona libre de la fila = enfocar el input.
@@ -64,5 +91,13 @@ export function createAddRow({ onAdd, currentHour }: AddRowHandlers): HTMLElemen
     if (event.target === row) input.focus()
   })
 
-  return row
+  return {
+    element: row,
+    open(): void {
+      row.hidden = false
+      refreshPlaceholder()
+      row.scrollIntoView({ block: 'nearest' })
+      hourInput.focus()
+    }
+  }
 }

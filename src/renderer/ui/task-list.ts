@@ -6,6 +6,8 @@ import { icons } from './icons'
 export interface TaskListView {
   element: HTMLElement
   render(tasks: Task[]): void
+  /** Muestra la fila de nueva tarea (oculta por defecto) con el foco puesto. */
+  openAddRow(): void
 }
 
 export interface TaskListHandlers {
@@ -51,7 +53,7 @@ function actionsHtml(deleteClass: string, deleteLabel: string, withAddSubtask: b
 export function createTaskList(handlers: TaskListHandlers): TaskListView {
   const element = el(`<div class="scroll"></div>`)
   const addRow = createAddRow({ onAdd: handlers.onAdd, currentHour: handlers.currentHour })
-  element.append(addRow)
+  element.append(addRow.element)
 
   let lastTasks: Task[] = []
   /** Tarea que tiene abierto el input de nueva subtarea (solo una a la vez). */
@@ -329,5 +331,5 @@ export function createTaskList(handlers: TaskListHandlers): TaskListView {
     focusInput('.edit-in')
   })
 
-  return { element, render }
+  return { element, render, openAddRow: addRow.open }
 }

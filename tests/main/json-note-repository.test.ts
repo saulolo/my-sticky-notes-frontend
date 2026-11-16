@@ -33,7 +33,14 @@ describe('JsonNoteRepository.load', () => {
     expect(data).toEqual({
       version: 2,
       note: { days: {} },
-      window: { pinned: false, collapsed: false, x: null, y: null, height: null }
+      window: {
+        pinned: false,
+        collapsed: false,
+        x: null,
+        y: null,
+        height: null,
+        alwaysOnTop: false
+      }
     })
     expect(await readdir(dir)).toEqual([])
   })
@@ -45,7 +52,7 @@ describe('JsonNoteRepository.load', () => {
         id: 't1',
         now: new Date(2026, 10, 12, 9)
       }),
-      window: { pinned: true, collapsed: false, x: 50, y: 60, height: 700 }
+      window: { pinned: true, collapsed: false, x: 50, y: 60, height: 700, alwaysOnTop: true }
     }
     await writeFile(file, JSON.stringify(stored), 'utf8')
     expect(await repo().load()).toEqual(stored)
@@ -65,7 +72,7 @@ describe('JsonNoteRepository.load', () => {
     expect(data).toEqual({
       version: 2,
       note: { days: { [TODAY]: tasks } },
-      window: { pinned: true, collapsed: false, x: 5, y: 6, height: null }
+      window: { pinned: true, collapsed: false, x: 5, y: 6, height: null, alwaysOnTop: false }
     })
     // Leer no reescribe el archivo.
     expect(JSON.parse(await readFile(file, 'utf8')).version).toBe(1)
@@ -141,7 +148,8 @@ describe('JsonNoteRepository.save', () => {
       collapsed: true,
       x: 10,
       y: 20,
-      height: 700
+      height: 700,
+      alwaysOnTop: true
     }
     await first.saveWindowPrefs(prefs)
 
@@ -153,7 +161,7 @@ describe('JsonNoteRepository.save', () => {
   it('guardar la nota conserva las preferencias de ventana, y viceversa', async () => {
     const r = repo()
     await r.load()
-    const prefs = { pinned: true, collapsed: false, x: 1, y: 2, height: null }
+    const prefs = { pinned: true, collapsed: false, x: 1, y: 2, height: null, alwaysOnTop: false }
     await r.saveWindowPrefs(prefs)
     await r.saveNote({ days: { [TODAY]: [] } })
 

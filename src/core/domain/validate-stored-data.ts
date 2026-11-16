@@ -64,7 +64,8 @@ const isNoteHeight = (value: unknown): value is number =>
 
 /**
  * Preferencias de ventana. `height` es opcional (un archivo de la SPEC 03 no lo tiene): si falta
- * vale `null`. Se devuelve un objeto nuevo con solo las claves conocidas.
+ * vale `null`. `alwaysOnTop` también (un archivo de la SPEC 04 no lo tiene): si falta vale `false`.
+ * Se devuelve un objeto nuevo con solo las claves conocidas.
  */
 function parseWindowPrefs(value: unknown): WindowPrefs | null {
   if (
@@ -78,12 +79,16 @@ function parseWindowPrefs(value: unknown): WindowPrefs | null {
   }
   const height = value.height ?? null
   if (height !== null && !isNoteHeight(height)) return null
+  // Solo la ausencia vale `false`: `null` u otro tipo invalidan el archivo.
+  const alwaysOnTop = value.alwaysOnTop === undefined ? false : value.alwaysOnTop
+  if (typeof alwaysOnTop !== 'boolean') return null
   return {
     pinned: value.pinned,
     collapsed: value.collapsed,
     x: value.x as number | null,
     y: value.y as number | null,
-    height
+    height,
+    alwaysOnTop
   }
 }
 
