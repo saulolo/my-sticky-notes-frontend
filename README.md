@@ -1,62 +1,407 @@
+<div align="center">
+
+<img src="resources/icon.png" alt="Icono de My Sticky Notes" width="112">
+
 # My Sticky Notes
 
-Nota adhesiva de escritorio (Electron) con tareas, subtareas y autoguardado. Basada en el mockup `docs/references/Artboard-cltk.dc.html`, con cambios propios: sin título, nota de 360 px libre y 308 px anclada, cabecera en dos filas, Fijar = anclar, "Siempre encima", botón para minimizar a la barra de tareas y anillo de progreso.
+### Tus tareas del día, siempre a la vista en el escritorio
 
-## Funciones
+Una nota adhesiva para Windows con una lista de tareas por día: **Ayer, Hoy y Mañana**.<br>
+Las pendientes pasan solas al día siguiente y todo se guarda solo, en tu PC.
 
-- Una lista de tareas por día. Pestañas "Ayer", "Hoy" y "Mañana" siempre visibles; el botón de historial (reloj) abre los días anteriores con tareas (hasta hoy − 5). Todos los días son editables. Al abrir, la pestaña activa es Hoy.
-- Cambio de día (al abrir la app y a las 00:00 con la app abierta): las tareas pendientes de días pasados pasan a Hoy con sus subtareas; las hechas se quedan en su día. Se borran los días anteriores a hoy − 5 y los días pasados vacíos.
-- Fecha corta del día activo en la cabecera (`Dom, 15 nov`): cambia con la pestaña y se ve también colapsada.
-- Progreso: anillo pequeño, `N de M hechas` (tareas + subtareas) y barra, con el mismo porcentaje.
-- Tareas con hora manual (0–23; vacío = hora actual), ordenadas por hora. Una sola capa de subtareas, contraíble. Edición con doble clic (texto y hora), borrado.
-- Sin título de nota: el día se lee en la pestaña y en la fecha de la cabecera.
-- Autoguardado en JSON (debounce 300 ms) en `userData/note.json` (formato `version: 2`, una lista por día). Un archivo `version: 1` se migra al leerlo: sus tareas pasan a Hoy.
-- Alto ajustable arrastrando el borde superior o inferior de la nota (mín. 300 px, máx. el alto del área útil del monitor). La nota libre siempre cabe en pantalla: llega hasta el borde superior y su pie nunca queda bajo la barra de tareas. Colapsada no se redimensiona.
-- Ancho fijo según el estado: 360 px libre, 308 px anclada (colapsada conserva el de su estado). Si al desfijar la nota no cabe por la derecha, se corre a la izquierda. Cabecera en dos filas: arriba engranaje, fecha, "Siempre encima", fijar, colapsar, minimizar a la barra de tareas y cerrar (zona para arrastrar la ventana); abajo "+" (nueva tarea) a la izquierda, "Ayer", "Hoy", "Mañana" centrados e historial a la derecha.
-- Fijar = anclar: la nota se pega al borde derecho del monitor no principal más a la derecha (con un solo monitor, el principal), a todo el alto del área útil sin tapar la barra de tareas. Anclada tiene esquinas cuadradas, no se mueve ni cambia de alto: siempre ocupa todo el alto, sin importar el alto libre. Colapsada, la cabecera queda arriba. Si cambian los monitores, se vuelve a anclar. Fijar no implica "Siempre encima": sin él, las demás ventanas la tapan. Desfijar la devuelve a su posición y alto libres.
-- Inicio automático con Windows ligado a Fijar: fijada, la app se abre sola (y anclada) al iniciar sesión; desfijada, no. Se registra `electron.exe` + la carpeta del proyecto, así que funciona con la app construida (`npm run build` + `npm start`) mientras la carpeta no se mueva ni se borre `out/`; si se mueve, desfijar y volver a fijar re-registra la ruta. No se registra con `npm run dev` ni con `--user-data-dir`.
-- "Siempre encima" (icono de capas, junto a fijar): la ventana queda delante de las demás, libre o anclada. Se marca con el acento y se recuerda al reabrir.
-- Engranaje de configuración: por ahora abre un menú "Próximamente". Colapsada, primero expande la nota.
-- Colapsar (guion: deja solo la fila superior de la cabecera) y cerrar.
-- Minimizar a la barra de tareas (flecha hacia abajo): minimizado nativo de Windows, libre o anclada. Se restaura con el icono de la barra (o Alt+Tab) tal como estaba. No se recuerda entre sesiones: si se cierra minimizada, abre normal.
-- Se recuerda posición, alto, fijada, colapsada y "Siempre encima"; si la posición queda fuera de pantalla, se centra.
-- `note.json` corrupto: arranca vacío y respalda el original como `note.corrupt-<timestamp>.json`.
-- Nueva tarea con el "+" de la fila de días: la fila "Añadir nueva tarea…" está oculta por defecto; "+" la muestra con el foco (colapsada no hay "+"). Enter crea la tarea y deja el foco listo para la siguiente; clic fuera o Esc la ocultan y descartan lo no enviado.
-- Sin función aún: la barra de formato del pie y las opciones del engranaje.
+<sub>**My Sticky Notes · Organiza tu día sin salir del escritorio.**</sub>
 
-## Requisitos
+![Windows 10/11](https://img.shields.io/badge/Windows-10%20%2F%2011%20x64-0078d4?style=for-the-badge&logo=windows&logoColor=white)
+![Versión](https://img.shields.io/badge/versión-0.1.0-F5C451?style=for-the-badge)
+![100% local](https://img.shields.io/badge/datos-100%25%20en%20tu%20PC-34c38f?style=for-the-badge)
+![Electron + TypeScript](https://img.shields.io/badge/Electron%20·%20TypeScript-vanilla-252526?style=for-the-badge&logo=electron&logoColor=white)
+![Licencia MIT](https://img.shields.io/badge/licencia-MIT-a1a1aa?style=for-the-badge)
 
-Node 24+ y npm 11+.
+<br>
 
-## Comandos
+[![Descargar para Windows](https://img.shields.io/badge/Descargar%20para%20Windows-My%20Sticky%20Notes%20Setup%200.1.0.exe-F5C451?style=for-the-badge&labelColor=252526)](https://github.com/saulolo/my-sticky-notes-frontend/releases/latest)
 
-| Comando             | Acción                                  |
-| ------------------- | --------------------------------------- |
-| `npm install`       | Instala dependencias y Electron         |
-| `npm run dev`       | Arranca la app con recarga en caliente  |
-| `npm run build`     | Typecheck + build a `out/`              |
-| `npm start`         | Ejecuta el build (`electron-vite preview`) |
-| `npm test`          | Tests (Vitest)                          |
-| `npm run lint`      | ESLint                                  |
-| `npm run typecheck` | `tsc` para node y web                   |
-| `npm run format`    | Prettier                                |
+<br>
 
-## Arquitectura
+<img src="docs/img/nota.png" alt="La nota libre con las tareas de hoy, subtareas y progreso" width="360">
+
+<sub>Capturas con datos de ejemplo.</sub>
+
+</div>
+
+---
+
+## 📚 Contenido
+
+- [✨ Qué hace en 30 segundos](#-qué-hace-en-30-segundos)
+- [📋 Requisitos](#-requisitos)
+- [🚀 Instalación](#-instalación)
+- [🧭 Recorrido por la nota](#-recorrido-por-la-nota)
+- [📅 Cómo cambian los días](#-cómo-cambian-los-días)
+- [⌨️ Gestos y atajos](#️-gestos-y-atajos)
+- [💾 Tus datos](#-tus-datos)
+- [🗑️ Desinstalar](#️-desinstalar)
+- [❓ Preguntas frecuentes](#-preguntas-frecuentes)
+- [🛠️ Para desarrolladores](#️-para-desarrolladores)
+- [✒️ Autor](#️-autor)
+- [🎁 Propósito y agradecimientos](#-propósito-y-agradecimientos)
+- [📜 Créditos y contacto](#-créditos-y-contacto)
+
+---
+
+## ✨ Qué hace en 30 segundos
+
+| | |
+|---|---|
+| **Una lista por día** | Pestañas **Ayer**, **Hoy** y **Mañana**, más un historial con los 5 días anteriores. Todos se pueden editar. |
+| **Nada se queda atrás** | Las tareas pendientes de días pasados pasan solas a Hoy (al abrir la app y a las 00:00). |
+| **Ordenadas por hora** | Cada tarea lleva su hora (0–23) y la lista se ordena sola. Una capa de subtareas, contraíble. |
+| **Progreso de un vistazo** | Anillo, `N de M hechas` y barra, contando tareas y subtareas. |
+| **Fijar = anclar** | La nota se pega al borde derecho de la pantalla, a todo el alto, y se abre sola al iniciar Windows. |
+| **Siempre encima** | Si quieres, la nota queda delante de las demás ventanas, libre o anclada. |
+| **A tu medida** | Alto ajustable arrastrando los bordes; colapsar a solo la cabecera o minimizar a la barra de tareas. |
+| **Se guarda sola** | Sin botón de guardar, sin cuenta y sin nube: un archivo en tu PC. |
+
+---
+
+## 📋 Requisitos
+
+| Requisito | Detalle |
+|---|---|
+| **Sistema** | Windows 10 u 11 de 64 bits (x64). En Windows 11 ARM funciona por emulación x64 (sin probar). El instalador no arranca en Windows anterior a 10. |
+| **Descarga** | ~120 MB (el instalador) |
+| **Disco** | ~400 MB (la app instalada) |
+| **Memoria** | ~100 MB con la app abierta |
+| **Permisos** | Ninguno para "Solo para mí"; administrador para "Para todos los usuarios" |
+| **Internet** | No hace falta (solo para descargar el instalador) |
+| **Pantalla** | Alto útil mínimo de 300 px para la nota. Con varios monitores, la nota fijada se ancla al de más a la derecha |
+
+---
+
+## 🚀 Instalación
+
+<p align="center"><img src="docs/img/instalador.png" alt="Bienvenida del asistente de instalación" width="503"></p>
+
+**1. Descarga** → `My Sticky Notes Setup <versión>.exe` desde [Releases](https://github.com/saulolo/my-sticky-notes-frontend/releases).
+
+**2. Ábrelo** → el instalador no está firmado, así que Windows puede mostrar **"Windows protegió su PC"** (SmartScreen).
+
+> [!IMPORTANT]
+> En el aviso de SmartScreen pulsa **Más información** → **Ejecutar de todas formas**. Pasa con cualquier programa sin firma digital; la firma de código queda para una versión futura.
+
+**3. Sigue el asistente** → Bienvenida, Licencia (MIT), tipo de instalación, carpeta y listo:
+
+| Opción | Dónde instala | ¿Pide admin? |
+|---|---|:---:|
+| **Solo para mí** *(por defecto)* | `%LOCALAPPDATA%\Programs\My Sticky Notes` | No |
+| **Para todos los usuarios** | `Program Files\My Sticky Notes` | Sí |
+
+Crea accesos directos en el **escritorio** y en el **menú Inicio**, y al terminar puede abrir la app.
+
+**4. Para actualizar** → instala la versión nueva encima. Tus notas se conservan.
+
+> [!TIP]
+> Si abres la app cuando ya está abierta, no se crea otra ventana: se trae al frente la que ya tienes (y se restaura si estaba minimizada).
+
+---
+
+## 🧭 Recorrido por la nota
+
+### 1. Cabecera
+
+La cabecera tiene dos filas. Arrastra la fila de arriba para mover la nota.
+
+| Fila | Izquierda | Centro | Derecha |
+|---|---|---|---|
+| **Arriba** | Configuración · fecha corta del día (`Lun, 16 nov`) | zona para arrastrar | Siempre encima · Fijar · Colapsar · Minimizar · Cerrar |
+| **Abajo** | **+** Nueva tarea | **Ayer · Hoy · Mañana** | Días anteriores |
+
+### 2. Tareas y subtareas
+
+- **+** (Nueva tarea) muestra la fila "Añadir nueva tarea…" con la hora (vacía = la hora actual). **Enter** crea la tarea y deja el foco listo para la siguiente.
+- Cada tarea tiene casilla, hora, texto y botones para **añadir subtarea** y **eliminar**.
+- **Doble clic** en el texto o la hora para editarlos.
+- Una sola capa de **subtareas**, con borde a la izquierda y un contador para contraerlas.
+- Marcar una tarea **no** marca sus subtareas.
+- Las hechas se ven tachadas y atenuadas.
+
+### 3. Progreso
+
+Un anillo pequeño, el texto `N de M hechas` y una barra, todos con el mismo porcentaje. Cuentan tareas **y** subtareas del día activo.
+
+### 4. Fijar, colapsar y minimizar
+
+<table>
+<tr>
+<td align="center" width="50%"><img src="docs/img/anclada.png" alt="Nota anclada al borde derecho" width="220"><br><sub><b>Anclada</b>: borde derecho, todo el alto, esquinas rectas</sub></td>
+<td align="center" width="50%"><img src="docs/img/colapsada.png" alt="Nota colapsada, solo la cabecera" width="360"><br><sub><b>Colapsada</b>: solo la fila de arriba</sub></td>
+</tr>
+</table>
+
+| Botón | Qué hace |
+|---|---|
+| **Fijar** | Ancla la nota al borde derecho del monitor no principal más a la derecha (con un solo monitor, el principal), a todo el alto sin tapar la barra de tareas. Anclada no se mueve ni cambia de alto, y en el pie dice **Fijada**. Además, **la app se abre sola al iniciar sesión**. Desfijar la devuelve a su posición y alto libres. |
+| **Siempre encima** | La ventana queda delante de las demás, libre o anclada. Es independiente de Fijar. |
+| **Colapsar** | Deja solo la fila de arriba de la cabecera. Otro clic la expande. |
+| **Minimizar** | Minimizado nativo de Windows; vuelve con el icono de la barra de tareas o Alt+Tab, tal como estaba. |
+
+La nota mide **360 px** libre y **308 px** anclada. Se recuerdan posición, alto, fijada, colapsada y "Siempre encima"; si la posición queda fuera de pantalla, se centra.
+
+### 5. Acerca de
+
+<p align="center"><img src="docs/img/acerca-de.png" alt="Panel Acerca de con versión, descripción y créditos" width="300"></p>
+
+En **Configuración → Acerca de My Sticky Notes** ves la versión, qué hace la app y los créditos, con enlaces al correo, a GitHub y al código del proyecto. Se cierra con **Esc**, con un clic fuera o con **×**.
+
+---
+
+## 📅 Cómo cambian los días
+
+```mermaid
+flowchart LR
+    A["00:00<br/>(o al abrir la app)"] --> B{"¿Tarea de un día<br/>pasado?"}
+    B -- "Pendiente" --> C["Pasa al final de Hoy<br/>con sus subtareas"]
+    B -- "Hecha" --> D["Se queda en su día"]
+    C --> E["Se borran los días<br/>anteriores a hoy − 5<br/>y los días pasados vacíos"]
+    D --> E
+
+    classDef move fill:#3a3014,stroke:#F5C451,color:#f4f4f5
+    classDef keep fill:#123a2c,stroke:#34c38f,color:#c8f2e1
+    classDef clean fill:#252526,stroke:#a1a1aa,color:#e4e4e7
+    class C move
+    class D keep
+    class E clean
+```
+
+Al abrir, la pestaña activa siempre es **Hoy**. Con la app abierta a medianoche, la pestaña salta sola al nuevo día.
+
+---
+
+## ⌨️ Gestos y atajos
+
+| Acción | Cómo |
+|---|---|
+| Crear tarea | **+** (Nueva tarea) y luego **Enter** (el foco queda listo para la siguiente) |
+| Descartar la tarea a medio escribir | **Esc** o clic fuera de la fila |
+| Editar texto u hora | **Doble clic** |
+| Cambiar el alto | Arrastra el **borde superior o inferior** de la nota (mín. 300 px, máx. el alto útil del monitor) |
+| Mover la nota | Arrastra la **fila de arriba** de la cabecera (libre, no anclada) |
+| Volver de la barra de tareas | Clic en el icono o **Alt+Tab** |
+| Cerrar "Acerca de" | **Esc**, clic fuera o **×** |
+
+---
+
+## 💾 Tus datos
+
+> [!NOTE]
+> Todo es local: un solo archivo con tus tareas y las preferencias de ventana. **Sin cuenta, sin nube y sin conexión.**
+
+| | |
+|---|---|
+| **Dónde** | `%APPDATA%\my-sticky-notes\note.json` |
+| **Cuándo se guarda** | Solo, unos 300 ms después de cada cambio y al cerrar la app |
+| **Escritura segura** | Primero un archivo temporal y luego se renombra. Si el archivo se daña, se respalda como `note.corrupt-<fecha>.json` y la app arranca vacía |
+| **Historial** | Se conservan hoy y los 5 días anteriores. Los pendientes pasan a hoy; los días más antiguos se borran |
+| **Copia de seguridad** | Copia `note.json` con la app cerrada. Para restaurar, vuelve a ponerlo en su sitio |
+| **Al desinstalar** | Las notas se conservan salvo que marques "Borrar también mis notas"; si reinstalas, las recuperas |
+| **Versión de desarrollo** | `npm run dev` y `npm start` usan otra carpeta: `%APPDATA%\my-sticky-notes-dev\` |
+
+---
+
+## 🗑️ Desinstalar
+
+**Configuración → Aplicaciones → My Sticky Notes → Desinstalar** (o "Agregar o quitar programas").
+
+- Quita la app, los accesos directos y el inicio automático con Windows.
+- Muestra la casilla **"Borrar también mis notas"**, desmarcada por defecto. Si la dejas así, tus notas se quedan en `%APPDATA%\my-sticky-notes\`.
+- Al actualizar (instalar una versión nueva encima) las notas nunca se borran.
+
+---
+
+## ❓ Preguntas frecuentes
+
+<details>
+<summary><b>Windows dice "Windows protegió su PC". ¿Es seguro?</b></summary>
+<br>
+El aviso aparece porque el instalador no tiene firma digital, no porque tenga algo malo. Pulsa <b>Más información</b> → <b>Ejecutar de todas formas</b>. El código completo está en este repositorio.
+</details>
+
+<details>
+<summary><b>¿Cómo hago que se abra al iniciar Windows?</b></summary>
+<br>
+Fija la nota. Fijada, la app se abre sola, y anclada, al iniciar sesión. Desfijada, no se abre sola.
+</details>
+
+<details>
+<summary><b>Fijé la nota pero otras ventanas la tapan.</b></summary>
+<br>
+Fijar solo la ancla al borde. Para que quede delante de todo, activa también <b>Siempre encima</b>.
+</details>
+
+<details>
+<summary><b>¿Puedo pasar mis notas a otro PC?</b></summary>
+<br>
+Sí: con la app cerrada en los dos equipos, copia <code>%APPDATA%\my-sticky-notes\note.json</code> del viejo al mismo sitio del nuevo.
+</details>
+
+<details>
+<summary><b>¿Qué pasa con una tarea que no terminé ayer?</b></summary>
+<br>
+Pasa sola al final de Hoy, con sus subtareas. Las hechas se quedan en su día y puedes verlas en la pestaña Ayer o en el historial.
+</details>
+
+<details>
+<summary><b>La nota no me deja cambiar el alto.</b></summary>
+<br>
+Anclada o colapsada el alto es fijo. Desfíjala o expándela y arrastra el borde superior o inferior.
+</details>
+
+<details>
+<summary><b>Los botones de formato del pie no hacen nada.</b></summary>
+<br>
+Todavía no tienen función: llegarán en una versión futura.
+</details>
+
+---
+
+## 🛠️ Para desarrolladores
+
+<details>
+<summary><b>Comandos, arquitectura, publicación y forma de trabajo</b></summary>
+
+<br>
+
+**Requisitos de desarrollo:** Node 24+ y npm 11+.
+
+### Comandos
+
+| Comando | Acción |
+|---|---|
+| `npm install` | Instala dependencias y Electron |
+| `npm run dev` | Arranca la app con recarga en caliente (datos en `my-sticky-notes-dev`) |
+| `npm run build` | Typecheck + build a `out/` |
+| `npm start` | Ejecuta el build (`electron-vite preview`) |
+| `npm test` | Tests (Vitest) |
+| `npm run lint` | ESLint |
+| `npm run typecheck` | `tsc` para node y web |
+| `npm run format` | Prettier |
+| `npm run dist` | Build + instalador NSIS en `dist/` |
+| `npm run art` | Regenera `build/author-logo.ico` y `build/installer-header.bmp` |
+
+### Arquitectura
+
+Capas con dependencia en un solo sentido: `core` no conoce Electron ni el DOM.
 
 ```
 src/
   core/        dominio + aplicación puros (sin electron ni DOM)
     domain/      Note (días), Task, operaciones inmutables, rotación de día, validación y migración, días y etiquetas de fecha
     application/ NoteStore (estado, autoguardado, rotación), puertos (Clock, NoteRepository)
-  main/        proceso principal: ventana (alto, anclaje), inicio automático, IPC, JsonNoteRepository
+  main/        proceso principal: ventana (alto, anclaje), carpeta de datos, instancia única,
+               inicio automático, enlaces externos permitidos, IPC, JsonNoteRepository
   preload/     puente seguro: expone window.stickyApi
   renderer/    UI en TypeScript vanilla (ui/, styles/, infrastructure/)
-tests/         domain, application, main (lógica de ventana y autoarranque sin Electron)
-specs/         especificaciones (01 nota de escritorio, 02 hora manual y orden, 03 pestañas por día, 04 alto ajustable y anclaje)
+tests/         domain, application, main (lógica de ventana, carpetas y autoarranque sin Electron)
+specs/         especificaciones (01 nota de escritorio … 06 instalador de Windows)
+build/         recursos del instalador: icono, logo del autor, cabecera, installer.nsh
+scripts/       make-installer-art.mjs (npm run art)
+docs/          mockup de referencia (references/) e imágenes del README (img/)
 ```
 
-Seguridad: `contextIsolation: true`, `nodeIntegration: false`, `sandbox: true`. El renderer solo ve `window.stickyApi`.
+**Seguridad:** `contextIsolation: true`, `nodeIntegration: false`, `sandbox: true`. El renderer solo ve `window.stickyApi`; para abrir enlaces envía una clave y el proceso principal valida contra una lista cerrada.
 
-## Stack
+### Stack
 
-Electron 44, electron-vite 6, Vite 8, TypeScript 5.9, Vitest 3, ESLint 10, Prettier. Fuente Inter local (`@fontsource/inter`).
+Electron 44, electron-vite 6, Vite 8, TypeScript 5.9, Vitest 3, ESLint 10, Prettier, electron-builder 26 (NSIS). Fuente Inter local (`@fontsource/inter`).
+
+### Publicar una versión
+
+1. Sube la versión en `package.json` (`version`).
+2. `npm run dist` → `dist/My Sticky Notes Setup <versión>.exe`. Cierra antes cualquier instalador abierto (bloquea el `.exe`).
+3. Prueba el instalador: instalar encima de la versión anterior, abrir y comprobar que las notas siguen.
+4. Commit, tag y push: `git tag v<versión>` y `git push origin v<versión>`.
+5. En GitHub → **Releases** → **Draft a new release**: elige el tag, escribe los cambios, adjunta el `.exe` y publica.
+
+### Cómo se desarrolla (SDD)
+
+- El proyecto sigue Spec Driven Design: cada cambio nace de una spec en `specs/`.
+- Cada spec se trabaja en su propia rama `spec-NN-slug` y se implementa paso a paso.
+- Los cambios de alcance durante la implementación se anotan en la spec ("añadido durante la implementación").
+- Después de cada spec se actualizan `CLAUDE.md` y este README.
+
+</details>
+
+---
+
+## ✒️ Autor
+
+¡Hola! Soy **Saul Echeverri Duque**, creador y desarrollador de este proyecto. Te comparto un poco sobre mi formación y experiencia.
+
+### Formación académica
+
+- Tecnólogo en **Análisis y Desarrollo de Software** · SENA.
+- **Ingeniero de Software** · Universidad de Antioquia, Colombia.
+- Más de **6 años** de experiencia en desarrollo de software, con microservicios en **Java, Spring Boot y Angular**.
+
+### Trayectoria profesional
+
+Desarrollador de software con sólida experiencia en el ecosistema Java y en soluciones enfocadas en productividad, escalabilidad y buenas prácticas de ingeniería. He aportado valor técnico en empresas del sector tecnológico y financiero:
+
+| Empresa | Rol |
+|---|---|
+| [IAS Software](https://www.ias.com.co/) | Desarrollador de Software Full Stack |
+| [Cidenet](https://cidenet.net/) | Analista de Desarrollo |
+| Convertic | Analista de Desarrollo |
+
+### Pasión por la programación
+
+- Mi viaje en la programación comenzó en **2020** y desde entonces he estado inmerso en el universo del desarrollo de software.
+- Mi principal área de enfoque es **Java y Angular**, pero este proyecto demuestra que las buenas prácticas (arquitectura por capas, dominio puro y testeable, separación entre lógica y presentación) aplican en cualquier tecnología: aquí, en una app de escritorio con **Electron y TypeScript sin frameworks de UI**.
+
+---
+
+## 🎁 Propósito y agradecimientos
+
+My Sticky Notes nace de una necesidad simple: tener las tareas del día **siempre a la vista**, sin abrir una app pesada, sin cuentas y sin depender de internet.
+
+Quería una nota que se sintiera nativa en el escritorio, que no dejara tareas olvidadas en días pasados y que se pudiera compartir con cualquier persona como un programa profesional, con su instalador.
+
+Este proyecto es también un espacio continuo de aprendizaje y aplicación práctica de la ingeniería de software: specs, capas bien separadas, pruebas y empaquetado, demostrando que una herramienta pequeña y bien diseñada tiene un impacto real en el día a día.
+
+Gracias a quienes la prueban, la usan y comparten sus ideas para mejorarla.
+
+---
+
+## 📜 Créditos y contacto
+
+Este proyecto fue desarrollado por **[Saul Echeverri](https://github.com/saulolo)** para organizar mis tareas diarias, pero es útil para cualquier persona que quiera una lista de tareas simple y siempre visible en Windows.
+
+Agradezco sinceramente el tiempo dedicado a revisar este proyecto. Valoro cualquier feedback técnico sobre las decisiones de arquitectura, diseño y buenas prácticas aplicadas, y quedo a disposición para profundizar en cualquier detalle de la implementación.
+
+<div align="center">
+
+[![GitHub](https://img.shields.io/badge/GitHub-saulolo-151b27?style=for-the-badge&logo=github&logoColor=white)](https://github.com/saulolo)
+[![Correo](https://img.shields.io/badge/Correo-saulolo%40gmail.com-ea4335?style=for-the-badge&logo=gmail&logoColor=white)](mailto:saulolo@gmail.com)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Saul%20Echeverri%20Duque-0a66c2?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/saul-echeverri-duque/)
+
+</div>
+
+---
+
+### Metadatos del documento
+
+| Campo | Detalles |
+|:---|:---|
+| **Título** | My Sticky Notes |
+| **Autor** | Saul Echeverri |
+| **Versión** | 0.1.0 |
+| **Licencia** | MIT (ver [`LICENSE`](LICENSE)) |
+| **Fecha de creación** | 12 de noviembre de 2026 |
+| **Última actualización** | 16 de noviembre de 2026 |
+| **Notas adicionales** | App de escritorio para Windows (Electron + TypeScript, sin framework de UI) con una lista de tareas por día, rotación automática de pendientes, anclaje al borde de la pantalla y guardado local. |
+
+---
+
+<div align="center">
+<sub>Hecho para organizar el día · Colombia</sub>
+</div>

@@ -1,0 +1,38 @@
+# Empaquetado de Windows (SPEC 06). `npm run dist` deja el instalador en dist/.
+appId: com.saulecheverri.mystickynotes # = APP_ID (src/main/app-identity.ts)
+productName: My Sticky Notes
+copyright: Copyright (c) 2026 Saul Echeverri
+directories:
+  buildResources: build
+  output: dist
+# Solo el código compilado y package.json (las dependencias de producción las añade electron-builder).
+files:
+  - out/**
+  - package.json
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: build/icon.ico # icono de la app, lo aporta el usuario
+nsis:
+  artifactName: ${productName} Setup ${version}.${ext}
+  # Asistente clásico: Bienvenida, Licencia, Tipo de instalación, Carpeta, Progreso, Final.
+  oneClick: false
+  perMachine: false # por defecto "Solo para mí" (sin admin); "Para todos" pide admin
+  allowElevation: true
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  runAfterFinish: true
+  deleteAppDataOnUninstall: false
+  license: LICENSE
+  installerLanguages:
+    - es_ES
+  language: '3082'
+  include: build/installer.nsh # Bienvenida propia, Windows 10+, casilla de borrar notas
+  # Iconos del instalador y desinstalador = icono de la app. installer-header.bmp lo genera
+  # `npm run art`. El lateral de Bienvenida y Final no es una imagen: lo dibuja build/installer.nsh.
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+  installerHeader: build/installer-header.bmp

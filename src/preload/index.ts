@@ -17,7 +17,8 @@ const stickyApi: StickyApi = {
     ipcRenderer.on('window:docked', (_event, docked: boolean) => listener(docked))
   },
   minimize: () => ipcRenderer.send('window:minimize'),
-  close: () => ipcRenderer.invoke('window:close')
+  close: () => ipcRenderer.invoke('window:close'),
+  openLink: (key) => ipcRenderer.send('app:open-link', key)
 }
 
 contextBridge.exposeInMainWorld('stickyApi', stickyApi)

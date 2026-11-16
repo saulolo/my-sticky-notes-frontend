@@ -250,8 +250,7 @@ body {
 .history-item.is-active {
   color: var(--accent);
 }
-.history-empty,
-.menu-empty {
+.history-empty {
   padding: 6px 10px;
   color: var(--text-muted);
   font-size: 12.5px;
@@ -661,4 +660,152 @@ body {
   font-weight: 500;
   color: var(--accent);
   padding-right: 4px;
+}
+
+/* ---------- "Acerca de" ---------- */
+/* Capa sobre toda la nota (dentro de ella, no ventana nueva). Clic en la capa = cerrar. */
+.about-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  padding: 10px;
+  box-sizing: border-box;
+  background: rgba(0, 0, 0, 0.5);
+  -webkit-app-region: no-drag;
+}
+.about-overlay[hidden] {
+  display: none;
+}
+/* Si no cabe en el alto de la nota (mínimo 300 px), el panel hace scroll. */
+.about {
+  position: relative;
+  flex: 1;
+  /* Alto del contenido, centrado; como mucho el de la nota (si no, scroll). */
+  align-self: center;
+  max-height: 100%;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 18px 16px 16px;
+  box-sizing: border-box;
+  border: 1px solid var(--border-note);
+  border-radius: 12px;
+  background: var(--bg-footer);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  color: var(--text-body);
+  text-align: center;
+}
+.about::-webkit-scrollbar {
+  width: 6px;
+}
+.about::-webkit-scrollbar-thumb {
+  background: var(--bg-on);
+  border-radius: 3px;
+}
+.about-close {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+}
+.about-icon {
+  flex: none;
+  width: 48px;
+  height: 48px;
+}
+.about-name {
+  margin: 8px 0 0;
+  color: var(--text-primary);
+  font: 600 15px/20px var(--font);
+}
+.about-version {
+  margin: 2px 0 0;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.about-lead {
+  margin: 12px 0 0;
+  font-size: 12.5px;
+  line-height: 18px;
+}
+.about-points {
+  margin: 8px 0 0;
+  padding: 0 0 0 16px;
+  font-size: 12px;
+  line-height: 17px;
+  color: var(--text-muted);
+  text-align: left;
+}
+.about-points li + li {
+  margin-top: 4px;
+}
+.about-card {
+  flex: none;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid var(--border-note);
+  border-radius: 10px;
+  background: var(--bg-note);
+}
+.about-card-label {
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.about-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin-top: 8px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--accent);
+  color: var(--bg-note);
+  font-size: 16px;
+  font-weight: 600;
+}
+.about-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.about-author {
+  margin-top: 8px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+}
+.about-links {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 14px;
+  margin-top: 10px;
+}
+/* Botones con aspecto de enlace: abren fuera de la app (correo o navegador). */
+.about-link {
+  padding: 2px 4px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--accent);
+  font: 500 12px/18px var(--font);
+  cursor: pointer;
+}
+.about-link:hover {
+  text-decoration: underline;
+}
+.about-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
