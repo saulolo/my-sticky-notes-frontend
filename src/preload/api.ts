@@ -1,5 +1,6 @@
 import type { Note } from '../core/domain/note'
 import type { WindowState } from '../core/domain/window-prefs'
+import type { ExternalLinkKey } from '../main/external-links'
 
 /** API que el preload expone al renderer como `window.stickyApi`. */
 export interface StickyApi {
@@ -21,4 +22,6 @@ export interface StickyApi {
   minimize(): void
   /** Sale de la app. El llamador debe hacer flush de la nota antes. */
   close(): Promise<void>
+  /** Abre fuera de la app (correo o navegador) un enlace del "Acerca de", por clave. */
+  openLink(key: ExternalLinkKey): void
 }

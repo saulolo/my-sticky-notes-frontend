@@ -1,6 +1,7 @@
-import { app, ipcMain } from 'electron'
+import { app, ipcMain, shell } from 'electron'
 import type { Note } from '../core/domain/note'
 import type { WindowState } from '../core/domain/window-prefs'
+import { externalLinkUrl } from './external-links'
 import type { JsonNoteRepository } from './json-note-repository'
 import type { WindowControls } from './window-controls'
 
@@ -15,7 +16,8 @@ export const IPC = {
   windowResizeMove: 'window:resize-move',
   windowResizeEnd: 'window:resize-end',
   windowMinimize: 'window:minimize',
-  windowClose: 'window:close'
+  windowClose: 'window:close',
+  appOpenLink: 'app:open-link'
 } as const
 
 function assertBoolean(value: unknown): boolean {
@@ -58,4 +60,9 @@ export function registerIpc(repository: JsonNoteRepository, controls: WindowCont
   ipcMain.on(IPC.windowMinimize, (): void => controls.minimize())
   // El renderer ya hizo flush de la nota. Antes de salir, `before-quit` espera las escrituras.
   ipcMain.handle(IPC.windowClose, (): void => app.quit())
+  // "Acerca de": el renderer manda una clave; solo se abren las URLs de EXTERNAL_LINKS.
+  ipcMain.on(IPC.appOpenLink, (_event, key: unknown): void => {
+    const url = externalLinkUrl(key)
+    if (url) void shell.openExternal(url)
+  })
 }

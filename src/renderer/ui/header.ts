@@ -37,6 +37,8 @@ export interface HeaderHandlers {
    * y resuelve cuando el cuerpo ya está visible.
    */
   beforeOpenSettings(): Promise<void>
+  /** Ítem "Acerca de My Sticky Notes" del menú del engranaje (el menú ya se cerró). */
+  onOpenAbout(): void
   /** "+": muestra la fila para añadir una tarea. */
   onNewTask(): void
   onToggleAlwaysOnTop(): void
@@ -53,7 +55,7 @@ export function createHeader(handlers: HeaderHandlers): HeaderView {
       <div class="settings-wrap">
         <button class="ib settings" type="button" aria-label="Configuración" title="Configuración" aria-haspopup="menu" aria-expanded="false">${icons.settings(15)}</button>
         <div class="settings-menu" role="menu" aria-label="Configuración" hidden>
-          <div class="menu-empty">Próximamente</div>
+          <button class="history-item settings-item about-item" type="button" role="menuitem">Acerca de My Sticky Notes</button>
         </div>
       </div>
       <span class="header-date"></span>
@@ -170,12 +172,15 @@ export function createHeader(handlers: HeaderHandlers): HeaderView {
     closeMenu(false)
     handlers.onNewTask()
   })
-  // ---------- Menú del engranaje (vacío por ahora) ----------
+  // ---------- Menú del engranaje ----------
+  const aboutItem = settingsMenu.querySelector<HTMLButtonElement>('.about-item')!
+
   function openSettings(): void {
     settingsMenu.hidden = false
     settingsButton.setAttribute('aria-expanded', 'true')
     document.addEventListener('pointerdown', onPointerDownOutsideSettings, true)
     document.addEventListener('keydown', onSettingsKeydown, true)
+    aboutItem.focus()
   }
 
   function closeSettings(restoreFocus: boolean): void {
@@ -196,8 +201,16 @@ export function createHeader(handlers: HeaderHandlers): HeaderView {
     if (event.key === 'Escape') {
       event.preventDefault()
       closeSettings(true)
+    } else if (event.key === 'Tab') {
+      closeSettings(false)
     }
   }
+
+  // Cierra el menú (el foco vuelve al engranaje) y abre el panel sobre la nota.
+  aboutItem.addEventListener('click', () => {
+    closeSettings(true)
+    handlers.onOpenAbout()
+  })
 
   settingsButton.addEventListener('click', () => {
     if (!settingsMenu.hidden) {

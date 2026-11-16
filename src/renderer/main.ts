@@ -10,6 +10,7 @@ import { addDays, dayDate, dayKey, dayLabel, pastDays, type DayKey } from '../co
 import type { Note } from '../core/domain/note'
 import { progress, tasksByHour, tasksOf } from '../core/domain/note-operations'
 import { IpcNoteRepository } from './infrastructure/ipc-note-repository'
+import { createAbout } from './ui/about'
 import { el } from './ui/dom'
 import { createFooter } from './ui/footer'
 import { createHeader } from './ui/header'
@@ -90,6 +91,7 @@ const header = createHeader({
   },
   // Colapsado, el menú del engranaje se recortaría: primero se expande.
   beforeOpenSettings: () => (collapsed ? setCollapsed(false) : Promise.resolve()),
+  onOpenAbout: () => about.open(),
   // Colapsada no hay "+": la fila de días se oculta.
   onNewTask: () => taskList.openAddRow(),
   onToggleAlwaysOnTop: () => {
@@ -114,6 +116,7 @@ const header = createHeader({
       .finally(() => void window.stickyApi.close())
   }
 })
+const about = createAbout({ onOpenLink: (key) => window.stickyApi.openLink(key) })
 const footer = createFooter()
 const progressView = createProgress()
 const taskList = createTaskList({
@@ -144,7 +147,8 @@ note.append(
   ...progressView.elements,
   taskList.element,
   footer.element,
-  ...resizeHandles.elements
+  ...resizeHandles.elements,
+  about.element
 )
 document.getElementById('app')!.append(note)
 
