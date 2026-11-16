@@ -69,9 +69,10 @@ export class WindowControls {
 
   /** Opciones de creación según las preferencias guardadas. Fijada, la ventana nace anclada. */
   windowOptions(): BrowserWindowConstructorOptions {
-    if (this.docked) return { ...this.dockedRect(), movable: false }
+    const { alwaysOnTop } = this.prefs
+    if (this.docked) return { ...this.dockedRect(), movable: false, alwaysOnTop }
     // Sin posición guardada, o si quedó fuera de pantalla: centrada en el monitor principal.
-    return this.freeRect()
+    return { ...this.freeRect(), alwaysOnTop }
   }
 
   attach(window: BrowserWindow): void {
@@ -87,16 +88,27 @@ export class WindowControls {
     })
     // Al crearla, Windows puede recortar el alto o redondear mal el tamaño con otro escalado:
     // se aplican otra vez los bounds calculados.
-    window.once('ready-to-show', () =>
-      this.applyBounds(this.docked ? this.dockedRect() : this.freeRect())
-    )
+    window.once('ready-to-show', () => this.applyCurrentBounds())
+    // Al restaurar desde la barra de tareas, Windows puede devolver una ventana sin marco y
+    // transparente con otro tamaño o posición: se reaplican los bounds. Anclada, el monitor de
+    // anclaje se recalcula (pueden haber cambiado los monitores mientras estaba minimizada).
+    window.on('restore', () => {
+      this.applyCurrentBounds()
+      this.reapplyAlwaysOnTop()
+    })
+    // La opción `alwaysOnTop` del constructor (ventana creada oculta) no siempre llega a Windows:
+    // al mostrarse se vuelve a aplicar.
+    window.on('show', () => this.reapplyAlwaysOnTop())
     // Se conecta, desconecta o cambia de resolución un monitor: se recalcula el anclaje.
     screen.on('display-added', this.onDisplaysChanged)
     screen.on('display-removed', this.onDisplaysChanged)
     screen.on('display-metrics-changed', this.onDisplaysChanged)
   }
 
-  /** Fijar = anclar (ventana normal, no siempre encima). Desfijar = posición y alto libres guardados. */
+  /**
+   * Fijar = anclar (no implica siempre encima: eso es `setAlwaysOnTop`, combinable).
+   * Desfijar = posición y alto libres guardados.
+   */
   setPinned(pinned: boolean): void {
     if (pinned === this.prefs.pinned) return
     const window = this.window
@@ -108,6 +120,25 @@ export class WindowControls {
     window.setMovable(!pinned)
     this.applyBounds(pinned ? this.dockedRect() : this.freeRect())
     window.webContents.send(DOCKED_CHANNEL, pinned)
+  }
+
+  /** Siempre encima de las demás ventanas, libre o anclada. Se guarda al instante. */
+  setAlwaysOnTop(alwaysOnTop: boolean): void {
+    if (alwaysOnTop === this.prefs.alwaysOnTop) return
+    this.update({ alwaysOnTop })
+    const window = this.window
+    if (window && !window.isDestroyed()) window.setAlwaysOnTop(alwaysOnTop)
+  }
+
+  /**
+   * Vuelve a aplicar "siempre encima" si está activo. Se apaga y enciende: si Electron ya lo cree
+   * activo, `setAlwaysOnTop(true)` no haría nada aunque Windows lo haya perdido.
+   */
+  private reapplyAlwaysOnTop(): void {
+    const window = this.window
+    if (!this.prefs.alwaysOnTop || !window || window.isDestroyed()) return
+    window.setAlwaysOnTop(false)
+    window.setAlwaysOnTop(true)
   }
 
   setCollapsed(collapsed: boolean): void {
@@ -158,6 +189,15 @@ export class WindowControls {
     this.persistPosition()
   }
 
+  /** Minimizado nativo a la barra de tareas. No añade nada a las preferencias (el estado minimizado no se guarda). */
+  minimize(): void {
+    const window = this.window
+    if (!window || window.isDestroyed()) return
+    // Se guarda antes una posición libre pendiente (debounce): minimizada ya no se puede leer.
+    this.persistPosition()
+    window.minimize()
+  }
+
   /** Guarda ya la posición libre actual (al cerrar o antes de salir). Anclada no se guarda. */
   persistPosition(): void {
     if (this.moveTimer !== null) {
@@ -165,6 +205,8 @@ export class WindowControls {
       this.moveTimer = null
     }
     if (this.docked || !this.window || this.window.isDestroyed()) return
+    // Minimizada, Windows informa una posición fuera de pantalla (-32000): no se guarda.
+    if (this.window.isMinimized()) return
     const [x, y] = this.window.getPosition()
     if (x === this.prefs.x && y === this.prefs.y) return
     this.update({ x, y })
@@ -205,6 +247,11 @@ export class WindowControls {
   /** La nota libre cabe en el área útil del monitor donde está la ventana. */
   private fitFree(rect: Rect): Rect {
     return fitFreeBounds(rect, screen.getDisplayMatching(rect).workArea)
+  }
+
+  /** Bounds calculados del estado actual: anclada o libre, colapsada o no. */
+  private applyCurrentBounds(): void {
+    this.applyBounds(this.docked ? this.dockedRect() : this.freeRect())
   }
 
   private applyBounds(rect: Rect): void {

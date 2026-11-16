@@ -5,7 +5,7 @@ import './styles/tokens.css'
 import './styles/app.css'
 
 import { NoteStore } from '../core/application/note-store'
-import { dateLabel } from '../core/domain/date-label'
+import { shortDateLabel } from '../core/domain/date-label'
 import { addDays, dayDate, dayKey, dayLabel, pastDays, type DayKey } from '../core/domain/day'
 import type { Note } from '../core/domain/note'
 import { progress, tasksByHour, tasksOf } from '../core/domain/note-operations'
@@ -32,6 +32,7 @@ const store = new NoteStore({
 
 // Estado de la ventana (lo guarda y aplica el proceso principal).
 let pinned = false
+let alwaysOnTop = false
 let collapsed = false
 let closing = false
 
@@ -57,6 +58,20 @@ function applyCollapsed(): void {
   note.classList.toggle('is-collapsed', collapsed)
 }
 
+/**
+ * Colapsa o expande. Al colapsar se oculta el cuerpo y luego se achica la ventana;
+ * al expandir, al revés. La promesa termina con el cuerpo ya visible/oculto.
+ */
+function setCollapsed(value: boolean): Promise<void> {
+  collapsed = value
+  const resize = window.stickyApi.setCollapsed(collapsed).catch(logWindowError('colapsar'))
+  if (collapsed) {
+    applyCollapsed()
+    return resize
+  }
+  return resize.then(applyCollapsed)
+}
+
 function selectDay(day: DayKey): void {
   if (day === activeDay) return
   activeDay = day
@@ -73,18 +88,22 @@ const header = createHeader({
       .filter((day) => day !== yesterday)
       .map((day) => ({ day, label: dayLabel(day, todayKey) }))
   },
+  // Colapsado, el menú del engranaje se recortaría: primero se expande.
+  beforeOpenSettings: () => (collapsed ? setCollapsed(false) : Promise.resolve()),
+  // Colapsada no hay "+": la fila de días se oculta.
+  onNewTask: () => taskList.openAddRow(),
+  onToggleAlwaysOnTop: () => {
+    alwaysOnTop = !alwaysOnTop
+    header.setAlwaysOnTop(alwaysOnTop)
+    window.stickyApi.setAlwaysOnTop(alwaysOnTop).catch(logWindowError('poner siempre encima'))
+  },
   onTogglePin: () => {
     pinned = !pinned
     applyPinned()
     window.stickyApi.setPinned(pinned).catch(logWindowError('fijar la ventana'))
   },
-  onToggleCollapse: () => {
-    collapsed = !collapsed
-    const resize = window.stickyApi.setCollapsed(collapsed).catch(logWindowError('minimizar'))
-    // Al colapsar se oculta el cuerpo y luego se achica la ventana; al expandir, al revés.
-    if (collapsed) applyCollapsed()
-    else void resize.then(applyCollapsed)
-  },
+  onToggleCollapse: () => void setCollapsed(!collapsed),
+  onMinimizeToTaskbar: () => window.stickyApi.minimize(),
   onClose: () => {
     if (closing) return
     closing = true
@@ -96,7 +115,7 @@ const header = createHeader({
   }
 })
 const footer = createFooter()
-const progressView = createProgress(dateLabel(dayDate(activeDay)))
+const progressView = createProgress()
 const taskList = createTaskList({
   onAdd: (text, hour) => store.addTask(activeDay, text, hour),
   currentHour: () => clock.now().getHours(),
@@ -132,7 +151,7 @@ document.getElementById('app')!.append(note)
 function render(current: Note): void {
   const todayKey = today()
   header.setDays(addDays(todayKey, -1), todayKey, addDays(todayKey, 1), activeDay)
-  progressView.setDate(dateLabel(dayDate(activeDay)))
+  header.setDate(shortDateLabel(dayDate(activeDay)))
   const tasks = tasksOf(current, activeDay)
   taskList.render(tasksByHour(tasks))
   const { done, total, percent } = progress(tasks)
@@ -182,6 +201,8 @@ window.stickyApi
   .then((prefs) => {
     pinned = prefs.pinned
     collapsed = prefs.collapsed
+    alwaysOnTop = prefs.alwaysOnTop
+    header.setAlwaysOnTop(alwaysOnTop)
     applyDocked(prefs.docked)
     applyPinned()
     applyCollapsed()

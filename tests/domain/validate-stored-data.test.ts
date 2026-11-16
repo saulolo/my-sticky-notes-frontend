@@ -18,7 +18,7 @@ function valid(): Record<string, unknown> {
   return {
     version: 2,
     note: { days: { '2026-11-14': [task()] } },
-    window: { pinned: false, collapsed: false, x: null, y: null, height: null }
+    window: { pinned: false, collapsed: false, x: null, y: null, height: null, alwaysOnTop: false }
   }
 }
 
@@ -141,8 +141,28 @@ describe('validateStoredData alto', () => {
       collapsed: false,
       x: 10,
       y: 20,
-      height: null
+      height: null,
+      alwaysOnTop: false
     })
+  })
+
+  it('un archivo de la SPEC 04 (sin alwaysOnTop) carga con alwaysOnTop en false', () => {
+    const data = valid()
+    data.window = { pinned: true, collapsed: true, x: 10, y: 20, height: 600 }
+    expect(validateStoredData(data, TODAY)?.window).toEqual({
+      pinned: true,
+      collapsed: true,
+      x: 10,
+      y: 20,
+      height: 600,
+      alwaysOnTop: false
+    })
+  })
+
+  it('conserva alwaysOnTop guardado', () => {
+    expect(validateStoredData(withWindow({ alwaysOnTop: true }), TODAY)?.window.alwaysOnTop).toBe(
+      true
+    )
   })
 
   it('acepta un alto libre válido', () => {
@@ -160,7 +180,9 @@ describe('validateStoredData alto', () => {
     ['height menor que 300', { height: 299 }],
     ['height decimal', { height: 500.5 }],
     ['height negativo', { height: -400 }],
-    ['height como texto', { height: '500' }]
+    ['height como texto', { height: '500' }],
+    ['alwaysOnTop como texto', { alwaysOnTop: 'true' }],
+    ['alwaysOnTop null', { alwaysOnTop: null }]
   ])('rechaza preferencias con %s', (_name, patch) => {
     expect(validateStoredData(withWindow(patch), TODAY)).toBeNull()
   })
@@ -172,7 +194,14 @@ describe('validateStoredData migración v1', () => {
     expect(validateStoredData(data, TODAY)).toEqual({
       version: 2,
       note: { days: { [TODAY]: [task()] } },
-      window: { pinned: false, collapsed: false, x: null, y: null, height: null }
+      window: {
+        pinned: false,
+        collapsed: false,
+        x: null,
+        y: null,
+        height: null,
+        alwaysOnTop: false
+      }
     })
   })
 

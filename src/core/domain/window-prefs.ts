@@ -10,6 +10,8 @@ export interface WindowPrefs {
   y: number | null
   /** Alto libre de la nota, sin márgenes. null = alto por defecto. */
   height: number | null
+  /** Siempre encima de las demás ventanas. Independiente de `pinned` (libre o anclada). */
+  alwaysOnTop: boolean
 }
 
 /** Lo que el renderer recibe de `window:get-prefs`: preferencias + si está anclada (fijada = anclada). */
@@ -23,7 +25,8 @@ export const DEFAULT_WINDOW_PREFS: WindowPrefs = {
   collapsed: false,
   x: null,
   y: null,
-  height: null
+  height: null,
+  alwaysOnTop: false
 }
 
 /** Formato del archivo en disco. La v1 (una sola lista `note.tasks`) se migra al leer. */

@@ -6,3 +6,8 @@ const MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', '
 export function dateLabel(date: Date): string {
   return `${DAYS[date.getDay()]}, ${date.getDate()} ${MONTHS[date.getMonth()]}`
 }
+
+/** Fecha local corta, para la cabecera: `Jue, 12 nov` (día en 3 letras, con tilde). */
+export function shortDateLabel(date: Date): string {
+  return `${DAYS[date.getDay()].slice(0, 3)}, ${date.getDate()} ${MONTHS[date.getMonth()]}`
+}

@@ -57,7 +57,7 @@ body {
   flex: none;
 }
 
-/* Minimizar: solo queda la cabecera. */
+/* Colapsar: solo queda la cabecera. */
 .note.is-collapsed {
   height: auto;
 }
@@ -108,7 +108,8 @@ body {
 .note-header {
   display: flex;
   align-items: center;
-  gap: 4px;
+  /* 2 px: a 308 px (anclada) caben engranaje, fecha y 5 botones. */
+  gap: 2px;
   height: 46px;
   padding: 0 8px;
   box-sizing: border-box;
@@ -119,9 +120,11 @@ body {
   -webkit-app-region: no-drag;
 }
 
-/* Fila de días bajo la cabecera: "Ayer", "Hoy", "Mañana" e historial. */
+/* Fila de días bajo la cabecera: "+" a la izquierda, "Ayer", "Hoy", "Mañana" centrados
+   e historial a la derecha. Columnas laterales iguales para que las pestañas queden centradas. */
 .day-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
   gap: 4px;
   height: 38px;
@@ -134,6 +137,9 @@ body {
   -webkit-app-region: no-drag;
 }
 
+.day-row .new-task {
+  justify-self: start;
+}
 /* Pestañas de día ("Ayer", "Hoy", "Mañana"): no se encogen. */
 .day-tabs {
   flex: none;
@@ -171,14 +177,15 @@ body {
 /* Menú de días anteriores a ayer: cae bajo el botón de historial, sobre la lista. */
 .history-wrap {
   position: relative;
-  flex: none;
+  justify-self: end;
   display: flex;
 }
-.history-menu {
+.history-menu,
+.settings-menu {
   position: absolute;
   top: calc(100% + 6px);
-  /* Se abre hacia la derecha: el botón está a la izquierda de la nota. */
-  left: 0;
+  /* Se abre hacia la izquierda: el botón está a la derecha de la nota. */
+  right: 0;
   z-index: 10;
   display: flex;
   flex-direction: column;
@@ -192,8 +199,30 @@ body {
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
   -webkit-app-region: no-drag;
 }
-.history-menu[hidden] {
+.history-menu[hidden],
+.settings-menu[hidden] {
   display: none;
+}
+/* Engranaje: a la izquierda de la fila superior; su menú se abre hacia la derecha. */
+.settings-wrap {
+  position: relative;
+  flex: none;
+  display: flex;
+}
+.settings-menu {
+  right: auto;
+  left: 0;
+}
+/* Fecha corta del día activo junto al engranaje. Texto: se puede arrastrar la ventana desde ella. */
+.header-date {
+  flex: none;
+  margin-left: 2px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--text-muted);
 }
 .history-item {
   height: 30px;
@@ -221,7 +250,8 @@ body {
 .history-item.is-active {
   color: var(--accent);
 }
-.history-empty {
+.history-empty,
+.menu-empty {
   padding: 6px 10px;
   color: var(--text-muted);
   font-size: 12.5px;
@@ -245,12 +275,23 @@ body {
   justify-content: space-between;
   padding: 12px 18px 6px;
 }
-.progress-date {
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--text-muted);
+/* Anillo de progreso (14 px): mismo porcentaje que la barra. Empieza arriba y avanza en horario. */
+.progress-ring {
+  flex: none;
+  transform: rotate(-90deg);
+}
+.progress-ring circle {
+  fill: none;
+  stroke-width: 2.5;
+}
+.progress-ring-track {
+  stroke: var(--bg-track);
+}
+.progress-ring-fill {
+  stroke: var(--accent);
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  transition: stroke-dashoffset 0.3s ease;
 }
 .progress-count {
   font-size: 11px;
@@ -526,6 +567,10 @@ body {
   border-radius: 10px;
   cursor: text;
   transition: background 0.15s ease;
+}
+/* Oculta por defecto: la abre el "+" de la cabecera. */
+.add-row[hidden] {
+  display: none;
 }
 .add-row:hover,
 .add-row:focus-within {

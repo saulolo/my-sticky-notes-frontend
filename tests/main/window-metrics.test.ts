@@ -3,6 +3,8 @@ import {
   COLLAPSED_HEIGHT,
   DEFAULT_NOTE_HEIGHT,
   DOCKED_MARGIN,
+  DOCKED_NOTE_WIDTH,
+  FREE_NOTE_WIDTH,
   MIN_NOTE_HEIGHT,
   WINDOW_WIDTH,
   dockedBounds,
@@ -21,8 +23,13 @@ const main: Rect = { x: 0, y: 0, width: 1920, height: 1040 }
 const second: Rect = { x: 1920, y: 0, width: 1280, height: 1024 }
 
 describe('medidas de la ventana', () => {
-  it('ancho = nota 308 + márgenes de sombra', () => {
-    expect(WINDOW_WIDTH).toBe(428)
+  it('libre: nota 360 + márgenes de sombra = ventana 480', () => {
+    expect(FREE_NOTE_WIDTH).toBe(360)
+    expect(WINDOW_WIDTH).toBe(480)
+  })
+
+  it('anclada: nota 308', () => {
+    expect(DOCKED_NOTE_WIDTH).toBe(308)
   })
 
   it('colapsada es mucho más baja que expandida', () => {
@@ -108,6 +115,11 @@ describe('dockedBounds', () => {
   it('colapsada, la cabecera queda arriba del área útil', () => {
     expect(dockedBounds(area, true)).toEqual({ x: 2832, y: 0, width: 368, height: 48 })
   })
+
+  it('ancho = nota anclada 308 + margen izquierdo, colapsada o no', () => {
+    expect(dockedBounds(area, false).width).toBe(DOCKED_NOTE_WIDTH + 60)
+    expect(dockedBounds(area, true).width).toBe(DOCKED_NOTE_WIDTH + 60)
+  })
 })
 
 describe('freeBounds', () => {
@@ -126,6 +138,11 @@ describe('freeBounds', () => {
 
   it('colapsada mide lo mismo que COLLAPSED_HEIGHT', () => {
     expect(freeBounds(0, 0, 700, true).height).toBe(COLLAPSED_HEIGHT)
+  })
+
+  it('ancho libre 480 (nota 360), colapsada o no', () => {
+    expect(freeBounds(0, 0, 700, false).width).toBe(480)
+    expect(freeBounds(0, 0, 700, true).width).toBe(480)
   })
 })
 
@@ -200,6 +217,24 @@ describe('fitFreeBounds', () => {
 
   it('si la ventana se sale por arriba, se baja', () => {
     expect(fitFreeBounds(freeBounds(100, -200, 500, false), area).y).toBe(0)
+  })
+
+  it('una nota de 308 pegada al borde derecho, al pasar a 360 se corre a la izquierda', () => {
+    // Ventana de 428 (nota 308) pegada a la derecha: x = 1920 - 60 - 308.
+    const fitted = fitFreeBounds(freeBounds(1920 - 60 - 308, 50, 500, false), area)
+    expect(fitted.x + 60 + FREE_NOTE_WIDTH).toBe(1920)
+    expect(fitted.y).toBe(50)
+  })
+
+  it('la sombra derecha puede salir del área útil: no se mueve si la nota cabe', () => {
+    const x = 1920 - 60 - FREE_NOTE_WIDTH
+    expect(fitFreeBounds(freeBounds(x, 50, 500, false), area).x).toBe(x)
+  })
+
+  it('respeta un área útil desplazada (segundo monitor)', () => {
+    const right: Rect = { x: 1920, y: 0, width: 1280, height: 1024 }
+    const fitted = fitFreeBounds(freeBounds(3000, 50, 500, false), right)
+    expect(fitted.x + 60 + FREE_NOTE_WIDTH).toBe(1920 + 1280)
   })
 })
 
