@@ -33,13 +33,24 @@
   --text-placeholder: #8b8b92;
 
   /* Forma */
-  --note-width: 360px;
+  --note-width: 308px;
   --note-radius: 16px;
   --note-shadow: 0 24px 60px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(0, 0, 0, 0.4);
 
   /* Margen transparente de la ventana donde cae la sombra.
-     Debe coincidir con SHADOW_MARGIN de src/main/index.ts. */
-  --margin-top: 40px;
-  --margin-side: 60px;
+     Debe coincidir con SHADOW_MARGIN de src/main/window-metrics.ts. */
+  /* Arriba 0: la nota libre llega al borde superior de la pantalla (sin sombra encima). */
+  --margin-top: 0px;
+  --margin-left: 60px;
+  --margin-right: 60px;
   --margin-bottom: 84px;
+}
+
+/* Anclada al borde derecho: solo queda el margen izquierdo (DOCKED_MARGIN). */
+:root.is-docked {
+  --margin-top: 0px;
+  --margin-right: 0px;
+  --margin-bottom: 0px;
+  /* Esquinas cuadradas para encajar con el borde del monitor. */
+  --note-radius: 0px;
 }

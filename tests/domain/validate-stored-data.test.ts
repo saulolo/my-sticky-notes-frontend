@@ -18,7 +18,7 @@ function valid(): Record<string, unknown> {
   return {
     version: 2,
     note: { days: { '2026-11-14': [task()] } },
-    window: { pinned: false, collapsed: false, x: null, y: null }
+    window: { pinned: false, collapsed: false, x: null, y: null, height: null }
   }
 }
 
@@ -126,13 +126,53 @@ describe('validateStoredData v2', () => {
   })
 })
 
+describe('validateStoredData alto', () => {
+  const withWindow = (patch: Record<string, unknown>): Record<string, unknown> => {
+    const data = valid()
+    data.window = { ...(data.window as object), ...patch }
+    return data
+  }
+
+  it('un archivo de la SPEC 03 (sin height) carga con height en null', () => {
+    const data = valid()
+    data.window = { pinned: true, collapsed: false, x: 10, y: 20 }
+    expect(validateStoredData(data, TODAY)?.window).toEqual({
+      pinned: true,
+      collapsed: false,
+      x: 10,
+      y: 20,
+      height: null
+    })
+  })
+
+  it('acepta un alto libre válido', () => {
+    expect(validateStoredData(withWindow({ height: 700 }), TODAY)?.window.height).toBe(700)
+  })
+
+  it('descarta claves sobrantes (p. ej. un dock de una versión anterior)', () => {
+    const data = withWindow({ extra: 1, dock: { top: 5, height: 400 } })
+    const prefs = validateStoredData(data, TODAY)?.window
+    expect(prefs).not.toHaveProperty('extra')
+    expect(prefs).not.toHaveProperty('dock')
+  })
+
+  it.each([
+    ['height menor que 300', { height: 299 }],
+    ['height decimal', { height: 500.5 }],
+    ['height negativo', { height: -400 }],
+    ['height como texto', { height: '500' }]
+  ])('rechaza preferencias con %s', (_name, patch) => {
+    expect(validateStoredData(withWindow(patch), TODAY)).toBeNull()
+  })
+})
+
 describe('validateStoredData migración v1', () => {
   it('devuelve v2 con las tareas en la lista de hoy y sin título', () => {
     const data = validV1()
     expect(validateStoredData(data, TODAY)).toEqual({
       version: 2,
       note: { days: { [TODAY]: [task()] } },
-      window: { pinned: false, collapsed: false, x: null, y: null }
+      window: { pinned: false, collapsed: false, x: null, y: null, height: null }
     })
   })
 

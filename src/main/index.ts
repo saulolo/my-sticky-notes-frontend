@@ -3,6 +3,7 @@ import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { dayKey } from '../core/domain/day'
+import { syncAutoLaunch } from './auto-launch'
 import { registerIpc } from './ipc'
 import { JsonNoteRepository } from './json-note-repository'
 import { WindowControls } from './window-controls'
@@ -40,11 +41,15 @@ function createWindow(windowControls: WindowControls): void {
     return { action: 'deny' }
   })
 
+  // Anclada desde el primer cuadro: el renderer lee `?docked=1` antes de pintar.
+  const query: Record<string, string> = windowControls.docked ? { docked: '1' } : {}
   // HMR en desarrollo (electron-vite); en producción se carga el HTML local.
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
+    const url = new URL(process.env['ELECTRON_RENDERER_URL'])
+    for (const [key, value] of Object.entries(query)) url.searchParams.set(key, value)
+    mainWindow.loadURL(url.toString())
   } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+    mainWindow.loadFile(join(__dirname, '../renderer/index.html'), { query })
   }
 }
 
@@ -60,7 +65,17 @@ app.whenReady().then(async () => {
     dayKey(new Date())
   )
   const stored = await repository.load()
-  const windowControls = new WindowControls(repository, stored.window)
+  // Inicio automático ligado a Fijar: se sincroniza al arrancar y al fijar/desfijar.
+  const launchContext = { env: process.env, argv: process.argv, execPath: process.execPath }
+  const syncLaunch = (pinned: boolean): void => {
+    try {
+      syncAutoLaunch(app, pinned, launchContext)
+    } catch (error) {
+      console.error('No se pudo actualizar el inicio automático', error)
+    }
+  }
+  syncLaunch(stored.window.pinned)
+  const windowControls = new WindowControls(repository, stored.window, syncLaunch)
   controls = windowControls
   registerIpc(repository, windowControls)
 

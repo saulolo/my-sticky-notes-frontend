@@ -14,6 +14,7 @@ import { el } from './ui/dom'
 import { createFooter } from './ui/footer'
 import { createHeader } from './ui/header'
 import { createProgress } from './ui/progress'
+import { createResizeHandles } from './ui/resize-handles'
 import { createTaskList } from './ui/task-list'
 
 const clock = { now: (): Date => new Date() }
@@ -42,6 +43,15 @@ function applyPinned(): void {
   header.setPinned(pinned)
   footer.setPinned(pinned)
 }
+
+/** Anclada: la clase en la raíz quita los márgenes de arriba, derecha y abajo. */
+function applyDocked(docked: boolean): void {
+  document.documentElement.classList.toggle('is-docked', docked)
+}
+
+// Antes del primer cuadro: el main pasa `?docked=1` si la ventana nace anclada.
+applyDocked(new URLSearchParams(location.search).get('docked') === '1')
+window.stickyApi.onDockedChange(applyDocked)
 
 function applyCollapsed(): void {
   note.classList.toggle('is-collapsed', collapsed)
@@ -101,8 +111,22 @@ const taskList = createTaskList({
   onDeleteSubtask: (taskId, subtaskId) => store.deleteSubtask(taskId, subtaskId)
 })
 
+const resizeHandles = createResizeHandles({
+  isEnabled: () => !collapsed && !document.documentElement.classList.contains('is-docked'),
+  onStart: (edge, screenY) => window.stickyApi.resizeStart(edge, screenY),
+  onMove: (screenY) => window.stickyApi.resizeMove(screenY),
+  onEnd: () => window.stickyApi.resizeEnd()
+})
+
 const note = el('<section class="note" aria-label="Nota adhesiva"></section>')
-note.append(header.element, ...progressView.elements, taskList.element, footer.element)
+note.append(
+  header.element,
+  header.dayRow,
+  ...progressView.elements,
+  taskList.element,
+  footer.element,
+  ...resizeHandles.elements
+)
 document.getElementById('app')!.append(note)
 
 function render(current: Note): void {
@@ -158,6 +182,7 @@ window.stickyApi
   .then((prefs) => {
     pinned = prefs.pinned
     collapsed = prefs.collapsed
+    applyDocked(prefs.docked)
     applyPinned()
     applyCollapsed()
   })

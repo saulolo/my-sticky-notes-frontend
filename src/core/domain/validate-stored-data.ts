@@ -1,6 +1,6 @@
 import type { DayKey } from './day'
 import { isValidHour, type Note, type Subtask, type Task } from './note'
-import type { StoredData, WindowPrefs } from './window-prefs'
+import { MIN_NOTE_HEIGHT, type StoredData, type WindowPrefs } from './window-prefs'
 
 type Obj = Record<string, unknown>
 
@@ -59,14 +59,32 @@ function isNoteV1(value: unknown): value is NoteV1 {
 const isCoordinate = (value: unknown): boolean =>
   value === null || (typeof value === 'number' && Number.isFinite(value))
 
-function isWindowPrefs(value: unknown): value is WindowPrefs {
-  return (
-    isObj(value) &&
-    typeof value.pinned === 'boolean' &&
-    typeof value.collapsed === 'boolean' &&
-    isCoordinate(value.x) &&
-    isCoordinate(value.y)
-  )
+const isNoteHeight = (value: unknown): value is number =>
+  Number.isInteger(value) && (value as number) >= MIN_NOTE_HEIGHT
+
+/**
+ * Preferencias de ventana. `height` es opcional (un archivo de la SPEC 03 no lo tiene): si falta
+ * vale `null`. Se devuelve un objeto nuevo con solo las claves conocidas.
+ */
+function parseWindowPrefs(value: unknown): WindowPrefs | null {
+  if (
+    !isObj(value) ||
+    typeof value.pinned !== 'boolean' ||
+    typeof value.collapsed !== 'boolean' ||
+    !isCoordinate(value.x) ||
+    !isCoordinate(value.y)
+  ) {
+    return null
+  }
+  const height = value.height ?? null
+  if (height !== null && !isNoteHeight(height)) return null
+  return {
+    pinned: value.pinned,
+    collapsed: value.collapsed,
+    x: value.x as number | null,
+    y: value.y as number | null,
+    height
+  }
 }
 
 /**
@@ -76,10 +94,12 @@ function isWindowPrefs(value: unknown): value is WindowPrefs {
  *   (sin tareas, `days` queda `{}`) y `title` se descarta.
  */
 export function validateStoredData(value: unknown, today: DayKey): StoredData | null {
-  if (!isObj(value) || !isWindowPrefs(value.window)) return null
+  if (!isObj(value)) return null
+  const prefs = parseWindowPrefs(value.window)
+  if (prefs === null) return null
 
   if (value.version === 2 && isNote(value.note)) {
-    return { version: 2, note: { days: value.note.days }, window: value.window }
+    return { version: 2, note: { days: value.note.days }, window: prefs }
   }
 
   if (value.version === 1 && isNoteV1(value.note)) {
@@ -87,7 +107,7 @@ export function validateStoredData(value: unknown, today: DayKey): StoredData | 
     return {
       version: 2,
       note: { days: tasks.length > 0 ? { [today]: tasks } : {} },
-      window: value.window
+      window: prefs
     }
   }
 

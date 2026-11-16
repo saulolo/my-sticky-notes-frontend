@@ -10,7 +10,10 @@ export interface PastDayItem {
 }
 
 export interface HeaderView {
+  /** Fila superior (zona de arrastre): nueva nota, fijar, minimizar, cerrar. */
   element: HTMLElement
+  /** Fila inferior: pestañas de día e historial. Se oculta al colapsar. */
+  dayRow: HTMLElement
   setPinned(pinned: boolean): void
   /**
    * Días de las pestañas "Ayer", "Hoy" y "Mañana" y el día activo (se marca con `--accent`).
@@ -32,6 +35,14 @@ export function createHeader(handlers: HeaderHandlers): HeaderView {
   const element = el(`
     <header class="note-header">
       <button class="ib" type="button" aria-label="Nueva nota" title="Nueva nota">${icons.plus(16)}</button>
+      <div class="header-spacer"></div>
+      <button class="ib pin" type="button" aria-label="Fijar en pantalla" aria-pressed="false" title="Fijar en pantalla">${icons.pin(15)}</button>
+      <div class="divider"></div>
+      <button class="ib minimize" type="button" aria-label="Minimizar" title="Minimizar">${icons.minimize(15)}</button>
+      <button class="ib close" type="button" aria-label="Cerrar" title="Cerrar">${icons.close(15)}</button>
+    </header>`)
+  const dayRow = el(`
+    <div class="day-row">
       <div class="day-tabs" role="group" aria-label="Día">
         <button class="day-tab" type="button" aria-pressed="false">Ayer</button>
         <button class="day-tab" type="button" aria-pressed="true">Hoy</button>
@@ -41,20 +52,15 @@ export function createHeader(handlers: HeaderHandlers): HeaderView {
         <button class="ib history" type="button" aria-label="Días anteriores" title="Días anteriores" aria-haspopup="menu" aria-expanded="false">${icons.history(15)}</button>
         <div class="history-menu" role="menu" aria-label="Días anteriores" hidden></div>
       </div>
-      <div class="header-spacer"></div>
-      <button class="ib pin" type="button" aria-label="Fijar en pantalla" aria-pressed="false" title="Fijar en pantalla">${icons.pin(15)}</button>
-      <div class="divider"></div>
-      <button class="ib minimize" type="button" aria-label="Minimizar" title="Minimizar">${icons.minimize(15)}</button>
-      <button class="ib close" type="button" aria-label="Cerrar" title="Cerrar">${icons.close(15)}</button>
-    </header>`)
+    </div>`)
   const pinButton = element.querySelector<HTMLButtonElement>('.pin')!
-  const historyButton = element.querySelector<HTMLButtonElement>('.history')!
-  const menu = element.querySelector<HTMLElement>('.history-menu')!
+  const historyButton = dayRow.querySelector<HTMLButtonElement>('.history')!
+  const menu = dayRow.querySelector<HTMLElement>('.history-menu')!
 
   let activeDay = ''
 
   // Cada pestaña guarda su día en `data-day` (lo fija `setDays`).
-  const tabs = [...element.querySelectorAll<HTMLButtonElement>('.day-tab')]
+  const tabs = [...dayRow.querySelectorAll<HTMLButtonElement>('.day-tab')]
   for (const tab of tabs) {
     tab.addEventListener('click', () => {
       if (tab.dataset.day) handlers.onSelectDay(tab.dataset.day)
@@ -140,6 +146,7 @@ export function createHeader(handlers: HeaderHandlers): HeaderView {
 
   return {
     element,
+    dayRow,
     setPinned(pinned: boolean): void {
       pinButton.classList.toggle('is-on', pinned)
       pinButton.setAttribute('aria-pressed', String(pinned))
