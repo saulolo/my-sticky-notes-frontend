@@ -27,6 +27,8 @@ export interface Note {
    * toda la nota.
    */
   days: Record<DayKey, Task[]>
+  /** Día (local `YYYY-MM-DD`) en que se usó "Traer tareas de ayer". Ausente = nunca. */
+  lastCarryOver?: DayKey
 }
 
 /** Hora válida de una tarea: entero de 0 a 23. */

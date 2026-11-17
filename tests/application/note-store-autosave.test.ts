@@ -138,7 +138,7 @@ describe('NoteStore autoguardado', () => {
     expect(tasksOf(save.mock.calls[0][0], D).map((t) => t.id)).toEqual(['old', 'new'])
   })
 
-  it('load con rotación programa el autoguardado', async () => {
+  it('load con poda del historial programa el autoguardado', async () => {
     const stored = addTask(createEmptyNote(), D, 'Vieja', {
       id: 'old',
       now: new Date(2026, 10, 12, 8)
@@ -146,12 +146,12 @@ describe('NoteStore autoguardado', () => {
     const save = vi.fn<(note: Note) => Promise<void>>(async () => undefined)
     const store = new NoteStore({
       repository: { load: async () => stored, save },
-      clock: { now: () => new Date(2026, 10, 13, 9) },
+      clock: { now: () => new Date(2026, 10, 20, 9) },
       newId: () => 'new'
     })
     await store.load()
     await vi.advanceTimersByTimeAsync(300)
     expect(save).toHaveBeenCalledTimes(1)
-    expect(tasksOf(save.mock.calls[0][0], '2026-11-13').map((t) => t.id)).toEqual(['old'])
+    expect(save.mock.calls[0][0].days[D]).toBeUndefined()
   })
 })

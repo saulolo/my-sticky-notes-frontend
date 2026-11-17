@@ -57,11 +57,22 @@ export class NoteStore {
   }
 
   /**
-   * Rotación de día con la fecha del Clock: mueve los pendientes de días pasados a hoy y
-   * poda el historial. Devuelve `true` si cambió algo (y entonces programa el autoguardado).
+   * Rotación de día con la fecha del Clock: solo poda el historial (no mueve tareas;
+   * traer las de ayer es una acción explícita, SPEC 07). Devuelve `true` si cambió algo
+   * (y entonces programa el autoguardado).
    */
   rollOver(): boolean {
     return this.change((n) => ops.rollOver(n, dayKey(this.deps.clock.now())))
+  }
+
+  /** `true` si "Traer tareas de ayer" está disponible hoy (fecha del Clock). */
+  canCarryOver(): boolean {
+    return ops.canCarryOver(this.note, dayKey(this.deps.clock.now()))
+  }
+
+  /** Copia a Hoy las tareas del último día anterior con tareas, sin marcar (una vez por día). */
+  carryOver(): boolean {
+    return this.change((n) => ops.carryOver(n, dayKey(this.deps.clock.now()), this.deps.newId))
   }
 
   /**

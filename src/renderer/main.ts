@@ -11,6 +11,7 @@ import type { Note } from '../core/domain/note'
 import { progress, tasksByHour, tasksOf } from '../core/domain/note-operations'
 import { IpcNoteRepository } from './infrastructure/ipc-note-repository'
 import { createAbout } from './ui/about'
+import { createCarryOver } from './ui/carry-over'
 import { el } from './ui/dom'
 import { createFooter } from './ui/footer'
 import { createHeader } from './ui/header'
@@ -133,6 +134,10 @@ const taskList = createTaskList({
   onDeleteSubtask: (taskId, subtaskId) => store.deleteSubtask(taskId, subtaskId)
 })
 
+// "Traer tareas de ayer" (SPEC 07): vive dentro de la lista, tras la fila de nueva tarea.
+const carryOver = createCarryOver({ onCarryOver: () => store.carryOver() })
+taskList.element.append(carryOver.element)
+
 const resizeHandles = createResizeHandles({
   isEnabled: () => !collapsed && !document.documentElement.classList.contains('is-docked'),
   onStart: (edge, screenY) => window.stickyApi.resizeStart(edge, screenY),
@@ -160,6 +165,8 @@ function render(current: Note): void {
   taskList.render(tasksByHour(tasks))
   const { done, total, percent } = progress(tasks)
   progressView.update(done, total, percent)
+  // Solo en Hoy, con Hoy vacío, sin uso previo hoy y con un día de origen.
+  carryOver.setVisible(activeDay === todayKey && store.canCarryOver())
 }
 
 store.subscribe(render)

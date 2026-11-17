@@ -37,12 +37,17 @@ const isTaskList = (value: unknown): value is Task[] => Array.isArray(value) && 
 
 const DAY_KEY = /^\d{4}-\d{2}-\d{2}$/
 
-/** Nota v2: `days` es un objeto `DayKey → Task[]`. Otras claves (p. ej. un `title` viejo) se ignoran. */
+/**
+ * Nota v2: `days` es un objeto `DayKey → Task[]`; `lastCarryOver` es opcional (`YYYY-MM-DD`).
+ * Otras claves (p. ej. un `title` viejo) se ignoran. */
 export function isNote(value: unknown): value is Note {
   return (
     isObj(value) &&
     isObj(value.days) &&
-    Object.entries(value.days).every(([day, tasks]) => DAY_KEY.test(day) && isTaskList(tasks))
+    Object.entries(value.days).every(([day, tasks]) => DAY_KEY.test(day) && isTaskList(tasks)) &&
+    // Solo la ausencia es válida: `null` u otro valor invalida el archivo.
+    (value.lastCarryOver === undefined ||
+      (typeof value.lastCarryOver === 'string' && DAY_KEY.test(value.lastCarryOver)))
   )
 }
 
@@ -104,7 +109,9 @@ export function validateStoredData(value: unknown, today: DayKey): StoredData | 
   if (prefs === null) return null
 
   if (value.version === 2 && isNote(value.note)) {
-    return { version: 2, note: { days: value.note.days }, window: prefs }
+    const { days, lastCarryOver } = value.note
+    const note: Note = lastCarryOver === undefined ? { days } : { days, lastCarryOver }
+    return { version: 2, note, window: prefs }
   }
 
   if (value.version === 1 && isNoteV1(value.note)) {
