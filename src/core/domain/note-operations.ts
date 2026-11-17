@@ -168,39 +168,66 @@ export function deleteSubtask(note: Note, taskId: string, subtaskId: string): No
 }
 
 /**
- * Rotación de día:
- * 1. Las tareas con `done: false` de días anteriores a `today` se mueven al final de la lista
- *    de hoy (del día más viejo al más reciente, en su orden), con sus subtareas tal cual.
- *    Una tarea hecha no se mueve aunque tenga subtareas pendientes.
- * 2. Se borran los días anteriores a hoy − `HISTORY_DAYS` y los días pasados sin tareas.
+ * Rotación de día: solo poda, no mueve tareas. Cada día pasado conserva todas sus tareas
+ * (hechas o no) con sus subtareas tal cual. Se borran los días anteriores a
+ * hoy − `HISTORY_DAYS` y los días pasados sin tareas. Hoy y los días futuros no se tocan.
  * Si no cambia nada devuelve el mismo `Note`. Es idempotente.
  */
 export function rollOver(note: Note, today: DayKey): Note {
   const oldest = addDays(today, -HISTORY_DAYS)
   const days: Record<DayKey, Task[]> = {}
-  const moved: Task[] = []
   let changed = false
 
-  for (const day of Object.keys(note.days).sort()) {
+  for (const day of Object.keys(note.days)) {
     const tasks = note.days[day]
-    if (day >= today) {
-      days[day] = tasks
-      continue
-    }
-    const pending = tasks.filter((t) => !t.done)
-    const kept = pending.length > 0 ? tasks.filter((t) => t.done) : tasks
-    moved.push(...pending)
-    if (kept.length === 0 || day < oldest) {
+    if (day < today && (tasks.length === 0 || day < oldest)) {
       changed = true
       continue
     }
-    if (kept !== tasks) changed = true
-    days[day] = kept
+    days[day] = tasks
   }
 
-  if (!changed) return note
-  if (moved.length > 0) days[today] = [...tasksOf(note, today), ...moved]
-  return { ...note, days }
+  return changed ? { ...note, days } : note
+}
+
+/** Día más reciente anterior a `today` con al menos una tarea, o `null` si no hay. */
+export function carryOverSource(note: Note, today: DayKey): DayKey | null {
+  let source: DayKey | null = null
+  for (const day of Object.keys(note.days)) {
+    if (day < today && note.days[day].length > 0 && (source === null || day > source)) {
+      source = day
+    }
+  }
+  return source
+}
+
+/**
+ * "Traer tareas de ayer" disponible: no se usó hoy, Hoy no tiene tareas y existe un día de
+ * origen.
+ */
+export function canCarryOver(note: Note, today: DayKey): boolean {
+  return (
+    note.lastCarryOver !== today &&
+    tasksOf(note, today).length === 0 &&
+    carryOverSource(note, today) !== null
+  )
+}
+
+/**
+ * Copia (no mueve) las tareas del día de origen al final de la lista de `today`, todas con
+ * `done: false` y con ids nuevos (tareas y subtareas); fija `lastCarryOver = today`.
+ * Si `canCarryOver` es falso devuelve el mismo `Note`.
+ */
+export function carryOver(note: Note, today: DayKey, newId: () => string): Note {
+  if (!canCarryOver(note, today)) return note
+  const source = carryOverSource(note, today)!
+  const copies = note.days[source].map((task): Task => ({
+    ...task,
+    id: newId(),
+    done: false,
+    subtasks: task.subtasks.map((sub) => ({ ...sub, id: newId(), done: false }))
+  }))
+  return { ...withDay(note, today, [...tasksOf(note, today), ...copies]), lastCarryOver: today }
 }
 
 /** Cuenta tareas y subtareas de una lista: M = todas, N = las que tienen `done`. */

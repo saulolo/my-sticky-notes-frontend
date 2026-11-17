@@ -35,7 +35,7 @@ export function createAbout(handlers: AboutHandlers): AboutView {
         <p class="about-lead">My Sticky Notes es una nota adhesiva de escritorio para organizar tus tareas del día.</p>
         <ul class="about-points">
           <li>Cada día tiene sus tareas: Ayer, Hoy, Mañana e historial de los últimos días.</li>
-          <li>Las tareas pendientes pasan solas al día siguiente.</li>
+          <li>Cada día empieza limpio; con un clic traes las tareas de ayer, sin marcar.</li>
           <li>Fija la nota para anclarla al borde derecho de la pantalla y que se abra al iniciar Windows.</li>
           <li>Todo se guarda automáticamente y solo en este equipo: sin cuenta, sin nube y sin internet.</li>
           <li>Se conservan los últimos 5 días; los anteriores se borran.</li>

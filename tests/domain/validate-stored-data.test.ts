@@ -49,6 +49,24 @@ describe('validateStoredData v2', () => {
     expect(validateStoredData(data, TODAY)?.note).toEqual({ days: {} })
   })
 
+  it('acepta lastCarryOver válido y lo devuelve; ausente es válido', () => {
+    const data = valid()
+    expect(validateStoredData(data, TODAY)?.note).not.toHaveProperty('lastCarryOver')
+    data.note = { days: {}, lastCarryOver: '2026-11-13' }
+    expect(validateStoredData(data, TODAY)?.note).toEqual({ days: {}, lastCarryOver: '2026-11-13' })
+  })
+
+  it.each([
+    ['null', null],
+    ['un número', 20261113],
+    ['un formato inválido', '13/11/2026'],
+    ['un string vacío', '']
+  ])('rechaza lastCarryOver %s', (_name, value) => {
+    const data = valid()
+    data.note = { days: {}, lastCarryOver: value }
+    expect(validateStoredData(data, TODAY)).toBeNull()
+  })
+
   it('acepta nota sin días, días vacíos y posición numérica', () => {
     const data = valid()
     data.note = { days: {} }
@@ -189,6 +207,10 @@ describe('validateStoredData alto', () => {
 })
 
 describe('validateStoredData migración v1', () => {
+  it('migra sin lastCarryOver', () => {
+    expect(validateStoredData(validV1(), TODAY)?.note).not.toHaveProperty('lastCarryOver')
+  })
+
   it('devuelve v2 con las tareas en la lista de hoy y sin título', () => {
     const data = validV1()
     expect(validateStoredData(data, TODAY)).toEqual({

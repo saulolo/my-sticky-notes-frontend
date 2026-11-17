@@ -7,7 +7,7 @@
 ### Tus tareas del día, siempre a la vista en el escritorio
 
 Una nota adhesiva para Windows con una lista de tareas por día: **Ayer, Hoy y Mañana**.<br>
-Las pendientes pasan solas al día siguiente y todo se guarda solo, en tu PC.
+Cada día empieza limpio, con un clic traes las tareas de ayer y todo se guarda solo, en tu PC.
 
 <sub>**My Sticky Notes · Organiza tu día sin salir del escritorio.**</sub>
 
@@ -54,7 +54,7 @@ Las pendientes pasan solas al día siguiente y todo se guarda solo, en tu PC.
 | | |
 |---|---|
 | **Una lista por día** | Pestañas **Ayer**, **Hoy** y **Mañana**, más un historial con los 5 días anteriores. Todos se pueden editar. |
-| **Nada se queda atrás** | Las tareas pendientes de días pasados pasan solas a Hoy (al abrir la app y a las 00:00). |
+| **Hoy empieza limpio** | Nada se mueve solo: cada día conserva sus tareas, hechas o no. Si Hoy está vacío, el botón **Traer tareas de ayer** copia (sin marcar) la lista del último día con tareas. Se usa una vez al día. |
 | **Ordenadas por hora** | Cada tarea lleva su hora (0–23) y la lista se ordena sola. Una capa de subtareas, contraíble. |
 | **Progreso de un vistazo** | Anillo, `N de M hechas` y barra, contando tareas y subtareas. |
 | **Fijar = anclar** | La nota se pega al borde derecho de la pantalla, a todo el alto, y se abre sola al iniciar Windows. |
@@ -159,19 +159,21 @@ En **Configuración → Acerca de My Sticky Notes** ves la versión, qué hace l
 
 ```mermaid
 flowchart LR
-    A["00:00<br/>(o al abrir la app)"] --> B{"¿Tarea de un día<br/>pasado?"}
-    B -- "Pendiente" --> C["Pasa al final de Hoy<br/>con sus subtareas"]
-    B -- "Hecha" --> D["Se queda en su día"]
-    C --> E["Se borran los días<br/>anteriores a hoy − 5<br/>y los días pasados vacíos"]
-    D --> E
+    A["00:00<br/>(o al abrir la app)"] --> B["Cada día pasado conserva<br/>sus tareas, hechas o no"]
+    A --> C["Hoy empieza limpio"]
+    B --> D["Se borran los días<br/>anteriores a hoy − 5<br/>y los días pasados vacíos"]
+    C --> E{"¿Hoy vacío?"}
+    E -- "Sí" --> F["Botón «Traer tareas de ayer»:<br/>copia sin marcar la lista<br/>del último día con tareas"]
 
     classDef move fill:#3a3014,stroke:#F5C451,color:#f4f4f5
     classDef keep fill:#123a2c,stroke:#34c38f,color:#c8f2e1
     classDef clean fill:#252526,stroke:#a1a1aa,color:#e4e4e7
-    class C move
-    class D keep
-    class E clean
+    class F move
+    class B,C keep
+    class D clean
 ```
+
+El botón **Traer tareas de ayer** aparece dentro de la lista vacía de Hoy, solo en esa pestaña, y se usa una vez al día (si borras todo después, no vuelve hasta el día siguiente). Las copias conservan hora y texto, quedan desmarcadas y Ayer no cambia.
 
 Al abrir, la pestaña activa siempre es **Hoy**. Con la app abierta a medianoche, la pestaña salta sola al nuevo día.
 
@@ -201,7 +203,7 @@ Al abrir, la pestaña activa siempre es **Hoy**. Con la app abierta a medianoche
 | **Dónde** | `%APPDATA%\my-sticky-notes\note.json` |
 | **Cuándo se guarda** | Solo, unos 300 ms después de cada cambio y al cerrar la app |
 | **Escritura segura** | Primero un archivo temporal y luego se renombra. Si el archivo se daña, se respalda como `note.corrupt-<fecha>.json` y la app arranca vacía |
-| **Historial** | Se conservan hoy y los 5 días anteriores. Los pendientes pasan a hoy; los días más antiguos se borran |
+| **Historial** | Se conservan hoy y los 5 días anteriores, con sus tareas hechas y pendientes tal como quedaron; los días más antiguos se borran |
 | **Copia de seguridad** | Copia `note.json` con la app cerrada. Para restaurar, vuelve a ponerlo en su sitio |
 | **Al desinstalar** | Las notas se conservan salvo que marques "Borrar también mis notas"; si reinstalas, las recuperas |
 | **Versión de desarrollo** | `npm run dev` y `npm start` usan otra carpeta: `%APPDATA%\my-sticky-notes-dev\` |
@@ -247,7 +249,7 @@ Sí: con la app cerrada en los dos equipos, copia <code>%APPDATA%\my-sticky-note
 <details>
 <summary><b>¿Qué pasa con una tarea que no terminé ayer?</b></summary>
 <br>
-Pasa sola al final de Hoy, con sus subtareas. Las hechas se quedan en su día y puedes verlas en la pestaña Ayer o en el historial.
+Se queda en Ayer tal como terminó el día. Si Hoy está vacío, pulsa <b>Traer tareas de ayer</b> para copiar la lista (sin marcar) a Hoy; también puedes verla en la pestaña Ayer o en el historial.
 </details>
 
 <details>
@@ -302,7 +304,7 @@ src/
   preload/     puente seguro: expone window.stickyApi
   renderer/    UI en TypeScript vanilla (ui/, styles/, infrastructure/)
 tests/         domain, application, main (lógica de ventana, carpetas y autoarranque sin Electron)
-specs/         especificaciones (01 nota de escritorio … 06 instalador de Windows)
+specs/         especificaciones (01 nota de escritorio … 07 traer tareas de ayer)
 build/         recursos del instalador: icono, logo del autor, cabecera, installer.nsh
 scripts/       make-installer-art.mjs (npm run art)
 docs/          mockup de referencia (references/) e imágenes del README (img/)
@@ -398,7 +400,7 @@ Agradezco sinceramente el tiempo dedicado a revisar este proyecto. Valoro cualqu
 | **Licencia** | MIT (ver [`LICENSE`](LICENSE)) |
 | **Fecha de creación** | 12 de noviembre de 2026 |
 | **Última actualización** | 16 de noviembre de 2026 |
-| **Notas adicionales** | App de escritorio para Windows (Electron + TypeScript, sin framework de UI) con una lista de tareas por día, rotación automática de pendientes, anclaje al borde de la pantalla y guardado local. |
+| **Notas adicionales** | App de escritorio para Windows (Electron + TypeScript, sin framework de UI) con una lista de tareas por día, botón para traer las tareas de ayer, anclaje al borde de la pantalla y guardado local. |
 
 ---
 

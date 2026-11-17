@@ -133,32 +133,82 @@ describe('NoteStore', () => {
     expect(listener).toHaveBeenCalledTimes(1)
   })
 
-  it('rollOver usa la fecha del Clock y devuelve false si no cambia nada', () => {
+  it('carryOver copia las tareas de ayer a Hoy una sola vez y programa el guardado', async () => {
+    const stored = addTask(createEmptyNote(), '2026-11-11', 'Vieja', {
+      id: 'x',
+      now: new Date(2026, 10, 11, 8)
+    })
+    const saved: unknown[] = []
+    let n = 0
+    const store = new NoteStore({
+      repository: {
+        load: async () => stored,
+        save: async (note) => {
+          saved.push(note)
+        }
+      },
+      clock: { now: () => new Date(2026, 10, 12, 10) },
+      newId: () => `c${++n}`,
+      saveDebounceMs: 0
+    })
+    await store.load()
+    expect(store.canCarryOver()).toBe(true)
+    expect(store.carryOver()).toBe(true)
+    expect(tasksOf(store.getNote(), D).map((t) => t.id)).toEqual(['c1'])
+    expect(store.getNote().lastCarryOver).toBe(D)
+    expect(store.canCarryOver()).toBe(false)
+    expect(store.carryOver()).toBe(false)
+    await store.flush()
+    expect(saved).toHaveLength(1)
+    expect(saved[0]).toBe(store.getNote())
+  })
+
+  it('carryOver no hace nada sin origen', () => {
+    const { store } = setup()
+    expect(store.canCarryOver()).toBe(false)
+    expect(store.carryOver()).toBe(false)
+  })
+
+  it('rollOver usa la fecha del Clock, solo poda y devuelve false si no cambia nada', () => {
     const { store, clock } = setup()
     store.addTask(D, 'Pendiente')
     store.addTask(D, 'Hecha')
     store.toggleTask('id2')
     expect(store.rollOver()).toBe(false)
 
+    // Al día siguiente nada se mueve: el día pasado conserva hechas y pendientes.
     clock.date = new Date(2026, 10, 13, 0, 0)
+    expect(store.rollOver()).toBe(false)
+    expect(tasksOf(store.getNote(), D).map((t) => t.id)).toEqual(['id1', 'id2'])
+    expect(tasksOf(store.getNote(), '2026-11-13')).toEqual([])
+
+    // Pasados más de 5 días el día se poda.
+    clock.date = new Date(2026, 10, 18, 0, 0)
     expect(store.rollOver()).toBe(true)
-    expect(tasksOf(store.getNote(), '2026-11-13').map((t) => t.id)).toEqual(['id1'])
-    expect(tasksOf(store.getNote(), D).map((t) => t.id)).toEqual(['id2'])
+    expect(store.getNote().days[D]).toBeUndefined()
     expect(store.rollOver()).toBe(false)
   })
 
-  it('load aplica la rotación tras cargar', async () => {
+  it('load aplica la rotación tras cargar (poda sin mover)', async () => {
     const stored = addTask(createEmptyNote(), D, 'Vieja', {
       id: 'x',
       now: new Date(2026, 10, 12, 8)
     })
-    const store = new NoteStore({
+    const recent = new NoteStore({
       repository: new InMemoryNoteRepository(stored),
       clock: { now: () => new Date(2026, 10, 14, 10) },
       newId: () => 'n'
     })
-    await store.load()
-    expect(tasksOf(store.getNote(), '2026-11-14').map((t) => t.id)).toEqual(['x'])
-    expect(store.getNote().days[D]).toBeUndefined()
+    await recent.load()
+    expect(tasksOf(recent.getNote(), D).map((t) => t.id)).toEqual(['x'])
+    expect(tasksOf(recent.getNote(), '2026-11-14')).toEqual([])
+
+    const old = new NoteStore({
+      repository: new InMemoryNoteRepository(stored),
+      clock: { now: () => new Date(2026, 10, 20, 10) },
+      newId: () => 'n'
+    })
+    await old.load()
+    expect(old.getNote().days[D]).toBeUndefined()
   })
 })
