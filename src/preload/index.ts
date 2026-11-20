@@ -10,8 +10,8 @@ const stickyApi: StickyApi = {
   setCollapsed: (collapsed: boolean) => ipcRenderer.invoke('window:set-collapsed', collapsed),
   setAlwaysOnTop: (alwaysOnTop: boolean) =>
     ipcRenderer.invoke('window:set-always-on-top', alwaysOnTop),
-  resizeStart: (edge, screenY) => ipcRenderer.send('window:resize-start', edge, screenY),
-  resizeMove: (screenY) => ipcRenderer.send('window:resize-move', screenY),
+  resizeStart: (edge, pos) => ipcRenderer.send('window:resize-start', edge, pos),
+  resizeMove: (pos) => ipcRenderer.send('window:resize-move', pos),
   resizeEnd: () => ipcRenderer.send('window:resize-end'),
   onDockedChange: (listener) => {
     ipcRenderer.on('window:docked', (_event, docked: boolean) => listener(docked))

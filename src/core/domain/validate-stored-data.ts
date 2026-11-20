@@ -1,7 +1,7 @@
 import type { DayKey } from './day'
 import { isValidHour, type Note, type Subtask, type Task } from './note'
 import { tasksByHour } from './note-operations'
-import { MIN_NOTE_HEIGHT, type StoredData, type WindowPrefs } from './window-prefs'
+import { MIN_NOTE_HEIGHT, MIN_NOTE_WIDTH, type StoredData, type WindowPrefs } from './window-prefs'
 
 type Obj = Record<string, unknown>
 
@@ -74,9 +74,12 @@ const isCoordinate = (value: unknown): boolean =>
 const isNoteHeight = (value: unknown): value is number =>
   Number.isInteger(value) && (value as number) >= MIN_NOTE_HEIGHT
 
+const isNoteWidth = (value: unknown): value is number =>
+  Number.isInteger(value) && (value as number) >= MIN_NOTE_WIDTH
+
 /**
  * Preferencias de ventana. `height` es opcional (un archivo de la SPEC 03 no lo tiene): si falta
- * vale `null`. `alwaysOnTop` también (un archivo de la SPEC 04 no lo tiene): si falta vale `false`.
+ * vale `null`; `width` igual (SPEC 09). `alwaysOnTop` también (un archivo de la SPEC 04 no lo tiene): si falta vale `false`.
  * Se devuelve un objeto nuevo con solo las claves conocidas.
  */
 function parseWindowPrefs(value: unknown): WindowPrefs | null {
@@ -91,6 +94,8 @@ function parseWindowPrefs(value: unknown): WindowPrefs | null {
   }
   const height = value.height ?? null
   if (height !== null && !isNoteHeight(height)) return null
+  const width = value.width ?? null
+  if (width !== null && !isNoteWidth(width)) return null
   // Solo la ausencia vale `false`: `null` u otro tipo invalidan el archivo.
   const alwaysOnTop = value.alwaysOnTop === undefined ? false : value.alwaysOnTop
   if (typeof alwaysOnTop !== 'boolean') return null
@@ -100,6 +105,7 @@ function parseWindowPrefs(value: unknown): WindowPrefs | null {
     x: value.x as number | null,
     y: value.y as number | null,
     height,
+    width,
     alwaysOnTop
   }
 }

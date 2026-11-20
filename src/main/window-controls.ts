@@ -12,11 +12,14 @@ import {
   fitFreeBounds,
   freeBounds,
   freeResizeLimits,
+  freeWidthLimits,
   isHeaderVisible,
   pickDockDisplay,
   resizeHeight,
+  resizeWidth,
   type Rect,
-  type ResizeLimits
+  type ResizeLimits,
+  type WidthLimits
 } from './window-metrics'
 
 const POSITION_DEBOUNCE_MS = 300
@@ -24,12 +27,18 @@ const POSITION_DEBOUNCE_MS = 300
 /** Canal main → renderer: la ventana se ancló o se desancló. Lo escucha el preload. */
 export const DOCKED_CHANNEL = 'window:docked'
 
+export type ResizeEdge = 'top' | 'bottom' | 'left' | 'right'
+
 interface ResizeDrag {
-  edge: 'top' | 'bottom'
-  /** `screenY` del puntero y bounds de la ventana al empezar: cada paso se calcula desde aquí. */
-  startY: number
+  edge: ResizeEdge
+  /**
+   * Coordenada del puntero (`screenY` en los bordes de arriba/abajo, `screenX` en los laterales)
+   * y bounds de la ventana al empezar: cada paso se calcula desde aquí.
+   */
+  startPos: number
   start: Rect
   limits: ResizeLimits
+  widthLimits: WidthLimits
   /** Último rect aplicado: al soltar se guarda este (no `getBounds`, que Windows puede redondear). */
   current: Rect
 }
@@ -148,44 +157,58 @@ export class WindowControls {
     } else if (this.window && !this.window.isDestroyed()) {
       // Se conserva la posición actual; al expandir, la nota se sube si no cabe hacia abajo.
       const [x, y] = this.window.getPosition()
-      this.applyBounds(this.fitFree(freeBounds(x, y, this.prefs.height, collapsed)))
+      this.applyBounds(
+        this.fitFree(freeBounds(x, y, this.prefs.height, collapsed, this.prefs.width))
+      )
     }
   }
 
   /**
-   * Empieza a arrastrar un borde. Colapsada o anclada no hace nada.
-   * El alto de la nota queda entre 300 y el área útil del monitor donde está.
+   * Empieza a arrastrar un borde (`pos` = `screenY` arriba/abajo, `screenX` en los laterales).
+   * Colapsada o anclada no hace nada. El alto de la nota queda entre 300 y el área útil del
+   * monitor donde está; el ancho, entre 308 y el área útil.
    */
-  startResize(edge: 'top' | 'bottom', screenY: number): void {
+  startResize(edge: ResizeEdge, pos: number): void {
     const window = this.window
     if (!window || window.isDestroyed() || this.prefs.collapsed || this.docked) return
     const start = window.getBounds()
+    const workArea = screen.getDisplayMatching(start).workArea
     this.drag = {
       edge,
-      startY: screenY,
+      startPos: pos,
       start,
       current: start,
-      limits: freeResizeLimits(screen.getDisplayMatching(start).workArea)
+      limits: freeResizeLimits(workArea),
+      widthLimits: freeWidthLimits(workArea)
     }
     // Redimensionable durante el arrastre: en Windows setBounds se ignora si no lo es.
     window.setResizable(true)
   }
 
-  moveResize(screenY: number): void {
+  moveResize(pos: number): void {
     const { drag, window } = this
     if (!drag || !window || window.isDestroyed()) return
-    drag.current = resizeHeight(drag.start, drag.edge, screenY - drag.startY, drag.limits)
+    const delta = pos - drag.startPos
+    drag.current =
+      drag.edge === 'left' || drag.edge === 'right'
+        ? resizeWidth(drag.start, drag.edge, delta, drag.widthLimits)
+        : resizeHeight(drag.start, drag.edge, delta, drag.limits)
     window.setBounds(drag.current)
   }
 
-  /** Termina el arrastre y guarda el alto de la nota (y la posición, si se movió el borde superior). */
+  /** Termina el arrastre y guarda el alto o ancho de la nota (y la posición, si se movió el borde superior o el izquierdo). */
   endResize(): void {
     const { drag, window } = this
     this.drag = null
     if (!drag || !window || window.isDestroyed()) return
     window.setResizable(false)
-    const height = drag.current.height - SHADOW_MARGIN.top - SHADOW_MARGIN.bottom
-    if (height !== this.prefs.height) this.update({ height })
+    if (drag.edge === 'left' || drag.edge === 'right') {
+      const width = drag.current.width - SHADOW_MARGIN.left - SHADOW_MARGIN.right
+      if (width !== this.prefs.width) this.update({ width })
+    } else {
+      const height = drag.current.height - SHADOW_MARGIN.top - SHADOW_MARGIN.bottom
+      if (height !== this.prefs.height) this.update({ height })
+    }
     this.persistPosition()
   }
 
@@ -227,13 +250,13 @@ export class WindowControls {
 
   /** Bounds libres guardados. Sin posición o fuera de pantalla: centrada en el monitor principal. */
   private freeRect(): Rect {
-    const { x, y, height, collapsed } = this.prefs
+    const { x, y, height, width, collapsed } = this.prefs
     const workAreas = screen.getAllDisplays().map((display) => display.workArea)
     if (x !== null && y !== null && isHeaderVisible(x, y, workAreas)) {
-      return this.fitFree(freeBounds(x, y, height, collapsed))
+      return this.fitFree(freeBounds(x, y, height, collapsed, width))
     }
     const area = screen.getPrimaryDisplay().workArea
-    const rect = freeBounds(0, 0, height, collapsed)
+    const rect = freeBounds(0, 0, height, collapsed, width)
     return fitFreeBounds(
       {
         ...rect,

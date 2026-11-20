@@ -11,10 +11,13 @@ export interface StickyApi {
   setCollapsed(collapsed: boolean): Promise<void>
   /** Siempre encima de las demás ventanas (libre o anclada). Se guarda. */
   setAlwaysOnTop(alwaysOnTop: boolean): Promise<void>
-  /** Empieza a cambiar el alto arrastrando el borde `edge`. `screenY` en DIP. */
-  resizeStart(edge: 'top' | 'bottom', screenY: number): void
-  resizeMove(screenY: number): void
-  /** Termina el arrastre y guarda el alto. */
+  /**
+   * Empieza a cambiar el alto (bordes `top`/`bottom`, `pos` = `screenY`) o el ancho (`left`/`right`,
+   * `pos` = `screenX`) arrastrando el borde `edge`. Coordenadas en DIP.
+   */
+  resizeStart(edge: 'top' | 'bottom' | 'left' | 'right', pos: number): void
+  resizeMove(pos: number): void
+  /** Termina el arrastre y guarda el alto o el ancho. */
   resizeEnd(): void
   /** Avisa cuando la ventana se ancla (fijar) o se desancla (desfijar). */
   onDockedChange(listener: (docked: boolean) => void): void

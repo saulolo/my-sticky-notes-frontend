@@ -1,10 +1,10 @@
 // Medidas de la ventana. Sin dependencias de Electron para poder testearlas.
 
-import { MIN_NOTE_HEIGHT } from '../core/domain/window-prefs'
+import { MIN_NOTE_HEIGHT, MIN_NOTE_WIDTH } from '../core/domain/window-prefs'
 
-export { MIN_NOTE_HEIGHT }
+export { MIN_NOTE_HEIGHT, MIN_NOTE_WIDTH }
 
-/** Ancho de la nota libre. */
+/** Ancho por defecto de la nota libre (ajustable entre `MIN_NOTE_WIDTH` y el área útil). */
 export const FREE_NOTE_WIDTH = 360
 /** Ancho de la nota anclada. */
 export const DOCKED_NOTE_WIDTH = 308
@@ -89,13 +89,22 @@ export function dockedBounds(workArea: Rect, collapsed: boolean): Rect {
   }
 }
 
-/** Bounds de la ventana libre en (x, y), con `SHADOW_MARGIN`. `height` null = alto por defecto. */
-export function freeBounds(x: number, y: number, height: number | null, collapsed: boolean): Rect {
+/**
+ * Bounds de la ventana libre en (x, y), con `SHADOW_MARGIN`. `height` null = alto por defecto;
+ * `width` null = ancho por defecto (colapsada conserva el ancho).
+ */
+export function freeBounds(
+  x: number,
+  y: number,
+  height: number | null,
+  collapsed: boolean,
+  width: number | null = null
+): Rect {
   const noteHeight = collapsed ? COLLAPSED_NOTE_HEIGHT : (height ?? DEFAULT_NOTE_HEIGHT)
   return {
     x,
     y,
-    width: WINDOW_WIDTH,
+    width: (width ?? FREE_NOTE_WIDTH) + SHADOW_MARGIN.left + SHADOW_MARGIN.right,
     height: noteHeight + SHADOW_MARGIN.top + SHADOW_MARGIN.bottom
   }
 }
@@ -109,6 +118,11 @@ export function maxFreeNoteHeight(workArea: Rect): number {
   return workArea.height - SHADOW_MARGIN.top
 }
 
+/** Ancho máximo de la nota libre: el área útil menos los márgenes laterales de sombra. */
+export function maxFreeNoteWidth(workArea: Rect): number {
+  return Math.max(workArea.width - SHADOW_MARGIN.left - SHADOW_MARGIN.right, MIN_NOTE_WIDTH)
+}
+
 /**
  * Ventana libre: mueve (y si hace falta acorta) la ventana para que quepa en vertical en el
  * área útil: el borde superior de la ventana y el inferior de la nota quedan dentro
@@ -118,15 +132,20 @@ export function maxFreeNoteHeight(workArea: Rect): number {
 export function fitFreeBounds(rect: Rect, workArea: Rect): Rect {
   const { top, bottom } = SHADOW_MARGIN
   const noteHeight = Math.min(rect.height - top - bottom, maxFreeNoteHeight(workArea))
+  const noteWidth = Math.min(
+    rect.width - SHADOW_MARGIN.left - SHADOW_MARGIN.right,
+    maxFreeNoteWidth(workArea)
+  )
+  const width = noteWidth + SHADOW_MARGIN.left + SHADOW_MARGIN.right
   const areaBottom = workArea.y + workArea.height
   let y = rect.y
   if (y + top + noteHeight > areaBottom) y = areaBottom - noteHeight - top
   if (y < workArea.y) y = workArea.y
   let x = rect.x
-  const noteRight = x + rect.width - SHADOW_MARGIN.right
+  const noteRight = x + width - SHADOW_MARGIN.right
   const areaRight = workArea.x + workArea.width
   if (noteRight > areaRight) x -= noteRight - areaRight
-  return { ...rect, x, y, height: noteHeight + top + bottom }
+  return { x, y, width, height: noteHeight + top + bottom }
 }
 
 /**
@@ -141,6 +160,26 @@ export function freeResizeLimits(workArea: Rect): ResizeLimits {
     top: workArea.y,
     bottom: workArea.y + workArea.height + SHADOW_MARGIN.bottom
   }
+}
+
+/** Límites para arrastrar los bordes laterales: la nota queda entre 308 px y el área útil, sin salirse. */
+export function freeWidthLimits(workArea: Rect): WidthLimits {
+  const margins = SHADOW_MARGIN.left + SHADOW_MARGIN.right
+  return {
+    minWidth: MIN_NOTE_WIDTH + margins,
+    maxWidth: maxFreeNoteWidth(workArea) + margins,
+    left: workArea.x - SHADOW_MARGIN.left,
+    right: workArea.x + workArea.width + SHADOW_MARGIN.right
+  }
+}
+
+/** Límites del arrastre de ancho, en coordenadas de la ventana (márgenes incluidos). */
+export interface WidthLimits {
+  minWidth: number
+  maxWidth: number
+  /** Hasta dónde puede llegar el borde izquierdo / derecho de la ventana. */
+  left: number
+  right: number
 }
 
 /**
@@ -182,4 +221,27 @@ export function resizeHeight(
     clamp(start.height - deltaY, limits.minHeight, Math.max(maxHeight, limits.minHeight))
   )
   return { ...start, y: bottom - height, height }
+}
+
+/**
+ * Nuevo rect al arrastrar un borde lateral `deltaX` píxeles desde `start`. El borde opuesto no se
+ * mueve (al arrastrar el izquierdo cambia también `x`). Aplica `minWidth`/`maxWidth` y `left`/`right`.
+ */
+export function resizeWidth(
+  start: Rect,
+  edge: 'left' | 'right',
+  deltaX: number,
+  limits: WidthLimits
+): Rect {
+  if (edge === 'right') {
+    const maxWidth = Math.min(limits.maxWidth, limits.right - start.x)
+    const width = clamp(start.width + deltaX, limits.minWidth, Math.max(maxWidth, limits.minWidth))
+    return { ...start, width: Math.round(width) }
+  }
+  const right = start.x + start.width
+  const maxWidth = Math.min(limits.maxWidth, right - limits.left)
+  const width = Math.round(
+    clamp(start.width - deltaX, limits.minWidth, Math.max(maxWidth, limits.minWidth))
+  )
+  return { ...start, x: right - width, width }
 }

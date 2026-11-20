@@ -19,6 +19,8 @@ export interface HeaderView {
   dayRow: HTMLElement
   setPinned(pinned: boolean): void
   setAlwaysOnTop(on: boolean): void
+  /** Estado del botón Colapsar: chevron, tooltip y `aria-expanded` según la nota esté colapsada. */
+  setCollapsed(collapsed: boolean): void
   /** Fecha corta del día activo (`Mié, 11 nov`). */
   setDate(label: string): void
   /**
@@ -62,9 +64,9 @@ export function createHeader(handlers: HeaderHandlers): HeaderView {
       <div class="header-spacer"></div>
       <button class="ib on-top" type="button" aria-label="Siempre encima" aria-pressed="false" title="Siempre encima">${icons.layers(15)}</button>
       <button class="ib pin" type="button" aria-label="Fijar en pantalla" aria-pressed="false" title="Fijar en pantalla">${icons.pin(15)}</button>
+      <button class="ib collapse" type="button" aria-label="Colapsar" title="Colapsar" aria-expanded="true">${icons.chevronUp(15)}</button>
       <div class="divider"></div>
-      <button class="ib collapse" type="button" aria-label="Colapsar" title="Colapsar">${icons.minimize(15)}</button>
-      <button class="ib to-taskbar" type="button" aria-label="Minimizar a la barra de tareas" title="Minimizar a la barra de tareas">${icons.arrowDown(15)}</button>
+      <button class="ib to-taskbar" type="button" aria-label="Minimizar a la barra de tareas" title="Minimizar a la barra de tareas">${icons.minimize(15)}</button>
       <button class="ib close" type="button" aria-label="Cerrar" title="Cerrar">${icons.close(15)}</button>
     </header>`)
   const dayRow = el(`
@@ -82,7 +84,8 @@ export function createHeader(handlers: HeaderHandlers): HeaderView {
     </div>`)
   const pinButton = element.querySelector<HTMLButtonElement>('.pin')!
   const onTopButton = element.querySelector<HTMLButtonElement>('.on-top')!
-  const dateText = element.querySelector<HTMLElement>('.header-date')!
+  const collapseButton = element.querySelector<HTMLButtonElement>('.collapse')!
+  const dateText =element.querySelector<HTMLElement>('.header-date')!
   const settingsButton = element.querySelector<HTMLButtonElement>('.settings')!
   const settingsMenu = element.querySelector<HTMLElement>('.settings-menu')!
   const historyButton = dayRow.querySelector<HTMLButtonElement>('.history')!
@@ -223,7 +226,7 @@ export function createHeader(handlers: HeaderHandlers): HeaderView {
 
   onTopButton.addEventListener('click', handlers.onToggleAlwaysOnTop)
   pinButton.addEventListener('click', handlers.onTogglePin)
-  element.querySelector('.collapse')!.addEventListener('click', () => {
+  collapseButton.addEventListener('click', () => {
     closeMenu(false)
     handlers.onToggleCollapse()
   })
@@ -244,6 +247,13 @@ export function createHeader(handlers: HeaderHandlers): HeaderView {
     setAlwaysOnTop(on: boolean): void {
       onTopButton.classList.toggle('is-on', on)
       onTopButton.setAttribute('aria-pressed', String(on))
+    },
+    setCollapsed(collapsed: boolean): void {
+      const text = collapsed ? 'Expandir' : 'Colapsar'
+      collapseButton.innerHTML = collapsed ? icons.chevronDown(15) : icons.chevronUp(15)
+      collapseButton.title = text
+      collapseButton.setAttribute('aria-label', text)
+      collapseButton.setAttribute('aria-expanded', String(!collapsed))
     },
     setDate(label: string): void {
       dateText.textContent = label

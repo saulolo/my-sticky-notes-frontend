@@ -19,7 +19,8 @@ body {
 
 /* ---------- Nota ---------- */
 .note {
-  width: var(--note-width);
+  /* Llena la ventana menos los márgenes (el body los pone como padding): el ancho lo fija la ventana. */
+  width: 100%;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -49,7 +50,24 @@ body {
 .resize-bottom {
   bottom: 0;
 }
-/* Anclada no cambia de alto. */
+/* Bordes laterales: ancho. Dejan libres las esquinas para no pisar los de arriba y abajo. */
+.resize-left,
+.resize-right {
+  top: 6px;
+  bottom: 6px;
+  width: 6px;
+  height: auto;
+  cursor: ew-resize;
+}
+.resize-left {
+  left: 0;
+  right: auto;
+}
+.resize-right {
+  right: 0;
+  left: auto;
+}
+/* Anclada no cambia de tamaño. */
 .is-docked .resize-handle {
   display: none;
 }
@@ -292,7 +310,15 @@ body {
   stroke-dashoffset: 100;
   transition: stroke-dashoffset 0.3s ease;
 }
+/* Botón alterna "Marcar todas" / "Desmarcar todas": pegado al conteo, sin crecer la fila. */
+.progress-all {
+  margin: -6px -6px -6px 6px;
+}
+.progress-all[hidden] {
+  display: none;
+}
 .progress-count {
+  margin-left: auto;
   font-size: 11px;
   font-weight: 500;
   color: var(--text-muted);
@@ -341,8 +367,11 @@ body {
 .scroll.is-dragging .row {
   transition: none;
 }
-.scroll.is-dragging .task:not(.is-dragging) .row:hover {
+.scroll.is-dragging .task:not(.is-dragging) .row:hover,
+.scroll.is-dragging .task-row.has-subtasks:hover {
   background: transparent;
+  transform: none;
+  box-shadow: none;
 }
 .task.is-dragging {
   position: relative;
@@ -403,10 +432,29 @@ body {
   gap: 10px;
   padding: 8px 10px;
   border-radius: 10px;
-  transition: background 0.15s ease;
+  transition:
+    background 0.15s ease,
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
 }
 .row:hover {
   background: var(--bg-row-hover);
+}
+/* Tarea con subtareas: al pasar el mouse "se levanta" (clic = mostrar u ocultar subtareas). */
+.task-row.has-subtasks {
+  cursor: pointer;
+}
+.task-row.has-subtasks:not(:has(input)):hover {
+  --row-actions-bg: color-mix(in srgb, var(--bg-note) 90%, #fff);
+  background: rgba(255, 255, 255, 0.1);
+  transform: translateY(-1px);
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.35),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+.task-row.has-subtasks:not(:has(input)):hover:active {
+  transform: translateY(0);
+  box-shadow: none;
 }
 .check {
   flex: none;
@@ -486,29 +534,45 @@ body {
   overflow-wrap: anywhere;
 }
 
-/* Contraer/expandir subtareas: chevron + cantidad. */
+/* Contraer/expandir subtareas: chip con chevron + `hechas/total`; el fondo se llena con el progreso. */
 .sub-toggle {
   flex: none;
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: 3px;
   height: 20px;
-  padding: 0 5px;
+  padding: 0 8px 0 6px;
   border: 0;
-  border-radius: 5px;
-  background: transparent;
+  border-radius: 999px;
+  background-color: rgba(255, 255, 255, 0.06);
+  background-image: linear-gradient(
+    color-mix(in srgb, var(--accent) 22%, transparent),
+    color-mix(in srgb, var(--accent) 22%, transparent)
+  );
+  background-repeat: no-repeat;
+  background-position: left center;
+  background-size: var(--sub-progress, 0%) 100%;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
   color: var(--text-muted);
   font: 500 11px/16px var(--font);
   font-variant-numeric: tabular-nums;
   cursor: pointer;
   transition:
-    background 0.15s ease,
-    color 0.15s ease,
-    margin 0.15s ease;
+    background-color 0.15s ease,
+    background-size 0.25s ease,
+    box-shadow 0.15s ease,
+    color 0.15s ease;
 }
 .sub-toggle:hover {
-  background: var(--bg-hover);
+  background-color: rgba(255, 255, 255, 0.1);
   color: var(--text-primary);
+}
+/* Todas hechas: el chip entero en acento. */
+.sub-toggle.is-complete,
+.sub-toggle.is-complete:hover {
+  background-color: color-mix(in srgb, var(--accent) 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent);
+  color: var(--accent);
 }
 .sub-toggle:focus-visible {
   outline: 2px solid var(--accent);
@@ -520,12 +584,6 @@ body {
 .sub-toggle.is-collapsed svg {
   transform: rotate(-90deg);
 }
-/* Deja sitio a los botones "+" y papelera que aparecen al pasar el mouse. */
-.task-row:hover .sub-toggle,
-.task-row:focus-within .sub-toggle {
-  margin-right: 46px;
-}
-
 /* Acciones al pasar el mouse: flotan a la derecha para no alterar el reposo. */
 .row {
   position: relative;
@@ -536,6 +594,9 @@ body {
   right: 8px;
   display: flex;
   gap: 2px;
+  /* Degradado a la izquierda: tapa suavemente el final de la fila (texto o contador) sin moverlo. */
+  padding-left: 18px;
+  background: linear-gradient(to right, transparent, var(--row-actions-bg) 14px);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.15s ease;
@@ -547,6 +608,43 @@ body {
 .row:focus-within .row-actions {
   opacity: 1;
   pointer-events: auto;
+}
+/* Mismo color que el fondo de la fila (con hover: nota + --bg-row-hover) para que el degradado no se note. */
+.row {
+  --row-actions-bg: var(--bg-note);
+}
+.row:hover {
+  --row-actions-bg: color-mix(in srgb, var(--bg-note) 96.5%, #fff);
+}
+
+/* Botón contraer/expandir de la fila padre: chevron abajo (contraídas) que gira a arriba (visibles). */
+.toggle-subs svg {
+  transform: rotate(180deg);
+}
+.toggle-subs.is-collapsed svg {
+  transform: none;
+}
+.toggle-subs.flip svg {
+  animation: toggle-subs-flip 0.25s ease;
+}
+.toggle-subs.flip.is-collapsed svg {
+  animation-name: toggle-subs-flip-back;
+}
+@keyframes toggle-subs-flip {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(180deg);
+  }
+}
+@keyframes toggle-subs-flip-back {
+  from {
+    transform: rotate(180deg);
+  }
+  to {
+    transform: rotate(0deg);
+  }
 }
 
 /* Input que reemplaza al texto al editar (doble clic). */

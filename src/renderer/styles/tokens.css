@@ -32,9 +32,7 @@
   --text-muted: #a1a1aa;
   --text-placeholder: #8b8b92;
 
-  /* Forma */
-  /* Libre 360 (FREE_NOTE_WIDTH); anclada 308 (DOCKED_NOTE_WIDTH), en .is-docked. */
-  --note-width: 360px;
+  /* Forma. El ancho de la nota no es un token: llena la ventana menos los márgenes (SPEC 09). */
   --note-radius: 16px;
   --note-shadow: 0 24px 60px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(0, 0, 0, 0.4);
 
@@ -52,7 +50,6 @@
   --margin-top: 0px;
   --margin-right: 0px;
   --margin-bottom: 0px;
-  --note-width: 308px;
   /* Esquinas cuadradas para encajar con el borde del monitor. */
   --note-radius: 0px;
 }

@@ -58,6 +58,7 @@ window.stickyApi.onDockedChange(applyDocked)
 
 function applyCollapsed(): void {
   note.classList.toggle('is-collapsed', collapsed)
+  header.setCollapsed(collapsed)
 }
 
 /**
@@ -119,7 +120,7 @@ const header = createHeader({
 })
 const about = createAbout({ onOpenLink: (key) => window.stickyApi.openLink(key) })
 const footer = createFooter()
-const progressView = createProgress()
+const progressView = createProgress({ onSetAllDone: (done) => store.setAllDone(activeDay, done) })
 const taskList = createTaskList({
   onAdd: (text, hour) => store.addTask(activeDay, text, hour),
   currentHour: () => clock.now().getHours(),
