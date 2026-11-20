@@ -22,6 +22,31 @@ export interface TaskListHandlers {
   onEditSubtask(taskId: string, subtaskId: string, text: string): boolean
   onDeleteTask(taskId: string): void
   onDeleteSubtask(taskId: string, subtaskId: string): void
+  /** Orden manual (SPEC 08): `toIndex` es la posición final dentro de la lista del día. */
+  onMoveTask(taskId: string, toIndex: number): void
+}
+
+/** Desplazamiento mínimo del puntero (px) para que un clic sostenido pase a ser arrastre. */
+const DRAG_THRESHOLD = 4
+/** Franja (px) en el borde superior/inferior de la lista donde esta se desplaza sola. */
+const EDGE_ZONE = 36
+/** Máximo de px por fotograma del autodesplazamiento. */
+const MAX_SCROLL_STEP = 14
+
+/** Arrastre en curso. Hasta superar el umbral solo es una pulsación (`active = false`). */
+interface DragState {
+  taskId: string
+  node: HTMLElement
+  pointerId: number
+  downX: number
+  downY: number
+  clientY: number
+  /** Distancia desde el borde superior de la fila hasta el puntero al empezar. */
+  grabOffset: number
+  active: boolean
+  raf: number | null
+  /** El store cambió la lista mientras se arrastraba: al soltar no se mueve nada. */
+  staleList: boolean
 }
 
 /** Texto que se está editando: una tarea, o una subtarea si trae `subtaskId`. */
@@ -239,6 +264,17 @@ export function createTaskList(handlers: TaskListHandlers): TaskListView {
   }
 
   function render(tasks: Task[]): void {
+    if (drag?.active) {
+      // Con un arrastre activo no se toca el DOM (destruiría la fila arrastrada); se
+      // difiere. Si la tarea arrastrada desapareció, se cancela el arrastre.
+      lastTasks = tasks
+      if (tasks.some((t) => t.id === drag?.taskId)) {
+        drag.staleList = true
+        return
+      }
+      endDrag(false)
+      return
+    }
     lastTasks = tasks
     if (addingSubtaskFor && !tasks.some((t) => t.id === addingSubtaskFor)) addingSubtaskFor = null
     if (editing && !tasks.some((t) => t.id === editing?.taskId)) editing = null
@@ -273,6 +309,218 @@ export function createTaskList(handlers: TaskListHandlers): TaskListView {
       else element.insertBefore(node, ref)
     }
   }
+
+  // ---------- Orden manual: arrastrar una tarea (SPEC 08) ----------
+  // Eventos de puntero con umbral (no HTML5 drag and drop: rompería el doble clic y la
+  // selección). La fila arrastrada sigue al puntero con un `transform`; el DOM se reordena en
+  // vivo, de modo que las demás se apartan y el hueco muestra dónde caerá.
+
+  let drag: DragState | null = null
+  let suppressClick = false
+
+  function taskNodes(): HTMLElement[] {
+    return [...element.children].filter(
+      (child): child is HTMLElement =>
+        child instanceof HTMLElement && child.classList.contains('task')
+    )
+  }
+
+  function onPress(event: PointerEvent): void {
+    if (drag || event.button !== 0 || !event.isPrimary || lastTasks.length < 2) return
+    const target = event.target as HTMLElement
+    // Check, botones e inputs de edición no inician arrastre.
+    if (target.closest('button, input, textarea')) return
+    const node = target.closest<HTMLElement>('.task-row')?.parentElement
+    const taskId = node?.dataset.taskId
+    if (!node || !taskId || node.parentElement !== element) return
+
+    drag = {
+      taskId,
+      node,
+      pointerId: event.pointerId,
+      downX: event.clientX,
+      downY: event.clientY,
+      clientY: event.clientY,
+      grabOffset: 0,
+      active: false,
+      raf: null,
+      staleList: false
+    }
+    document.addEventListener('pointermove', onDragMove)
+    document.addEventListener('pointerup', onDragUp)
+    document.addEventListener('pointercancel', onDragCancel)
+    document.addEventListener('keydown', onDragKey, true)
+  }
+
+  function onDragMove(event: PointerEvent): void {
+    if (!drag || event.pointerId !== drag.pointerId) return
+    drag.clientY = event.clientY
+    if (!drag.active) {
+      if (Math.hypot(event.clientX - drag.downX, event.clientY - drag.downY) < DRAG_THRESHOLD) {
+        return
+      }
+      if (!startDrag()) return
+    }
+    updateDrag()
+  }
+
+  function onDragUp(event: PointerEvent): void {
+    if (drag && event.pointerId === drag.pointerId) endDrag(true)
+  }
+
+  function onDragCancel(event: PointerEvent): void {
+    if (drag && event.pointerId === drag.pointerId) endDrag(false)
+  }
+
+  function onDragKey(event: KeyboardEvent): void {
+    if (event.key !== 'Escape' || !drag?.active) return
+    event.preventDefault()
+    event.stopPropagation()
+    endDrag(false)
+  }
+
+  /** Pasa de pulsación a arrastre. `false` si la fila ya no está en el DOM (se cancela). */
+  function startDrag(): boolean {
+    if (!drag) return false
+    if (!drag.node.isConnected) {
+      endDrag(false)
+      return false
+    }
+    drag.active = true
+    drag.grabOffset = drag.downY - drag.node.getBoundingClientRect().top
+    // La captura solo empieza ahora: antes retargetearía el clic y el doble clic.
+    try {
+      element.setPointerCapture(drag.pointerId)
+    } catch {
+      // Sin captura el arrastre sigue con los eventos del documento.
+    }
+    window.getSelection()?.removeAllRanges()
+    element.classList.add('is-dragging')
+    drag.node.classList.add('is-dragging')
+    drag.raf = requestAnimationFrame(autoScrollTick)
+    return true
+  }
+
+  /** Coloca la fila bajo el puntero y la mueve en el DOM al hueco que le corresponde. */
+  function updateDrag(): void {
+    if (!drag?.active) return
+    const { node } = drag
+    node.style.transform = ''
+    const list = element.getBoundingClientRect()
+    const height = node.getBoundingClientRect().height
+    // Siempre dentro de la parte visible de la lista.
+    const top = Math.min(
+      Math.max(drag.clientY - drag.grabOffset, list.top),
+      Math.max(list.top, list.bottom - height)
+    )
+    const center = top + height / 2
+
+    // Posición del hueco: cuántas de las otras filas quedan por encima del centro. Se mide
+    // con las coordenadas actuales de cada fila, no con medidas guardadas.
+    const siblings = taskNodes().filter((n) => n !== node)
+    const index = siblings.filter((n) => {
+      const rect = n.getBoundingClientRect()
+      return rect.top + rect.height / 2 < center
+    }).length
+
+    if (index !== taskNodes().indexOf(node)) {
+      const before = siblings.map((n) => n.getBoundingClientRect().top)
+      const ref = siblings[index]
+      if (ref) element.insertBefore(node, ref)
+      else siblings[siblings.length - 1].after(node)
+      // Las demás filas se deslizan desde donde estaban hasta su sitio nuevo.
+      const moved: HTMLElement[] = []
+      siblings.forEach((n, i) => {
+        n.style.transition = 'none'
+        n.style.transform = ''
+        const delta = before[i] - n.getBoundingClientRect().top
+        if (delta !== 0) {
+          n.style.transform = `translateY(${delta}px)`
+          moved.push(n)
+        }
+      })
+      void element.offsetHeight
+      for (const n of moved) {
+        n.style.transition = 'transform 140ms ease'
+        n.style.transform = ''
+      }
+    }
+
+    const natural = node.getBoundingClientRect().top
+    node.style.transform = `translateY(${top - natural}px)`
+  }
+
+  /** Mientras se arrastra cerca del borde de la lista, la desplaza sola. */
+  function autoScrollTick(): void {
+    if (!drag?.active) return
+    const list = element.getBoundingClientRect()
+    const { clientY } = drag
+    let step = 0
+    if (clientY < list.top + EDGE_ZONE) {
+      step = -Math.min(1, (list.top + EDGE_ZONE - clientY) / EDGE_ZONE) * MAX_SCROLL_STEP
+    } else if (clientY > list.bottom - EDGE_ZONE) {
+      step = Math.min(1, (clientY - (list.bottom - EDGE_ZONE)) / EDGE_ZONE) * MAX_SCROLL_STEP
+    }
+    if (step !== 0) {
+      const previous = element.scrollTop
+      element.scrollTop += Math.sign(step) * Math.ceil(Math.abs(step))
+      if (element.scrollTop !== previous) updateDrag()
+    }
+    drag.raf = requestAnimationFrame(autoScrollTick)
+  }
+
+  /** Termina el arrastre. `commit` guarda el nuevo orden; si no, todo vuelve a su sitio. */
+  function endDrag(commit: boolean): void {
+    const state = drag
+    if (!state) return
+    drag = null
+    document.removeEventListener('pointermove', onDragMove)
+    document.removeEventListener('pointerup', onDragUp)
+    document.removeEventListener('pointercancel', onDragCancel)
+    document.removeEventListener('keydown', onDragKey, true)
+    if (state.raf !== null) cancelAnimationFrame(state.raf)
+    if (!state.active) return // Solo fue un clic: sigue su curso normal.
+
+    const toIndex = taskNodes().indexOf(state.node)
+    // El clic que sigue a soltar no debe marcar ni editar nada.
+    suppressClick = true
+    setTimeout(() => {
+      suppressClick = false
+    }, 0)
+    try {
+      element.releasePointerCapture(state.pointerId)
+    } catch {
+      // Ya liberada.
+    }
+    element.classList.remove('is-dragging')
+    for (const node of taskNodes()) {
+      node.classList.remove('is-dragging')
+      node.style.transform = ''
+      node.style.transition = ''
+    }
+
+    const from = lastTasks.findIndex((t) => t.id === state.taskId)
+    if (commit && !state.staleList && from !== -1 && toIndex !== from) {
+      handlers.onMoveTask(state.taskId, toIndex)
+    }
+    // Sin cambio de orden (o cancelado) esto devuelve las filas a la posición del modelo.
+    render(lastTasks)
+  }
+
+  element.addEventListener('pointerdown', onPress)
+  element.addEventListener('lostpointercapture', () => {
+    if (drag?.active) endDrag(false)
+  })
+  element.addEventListener(
+    'click',
+    (event) => {
+      if (!suppressClick) return
+      suppressClick = false
+      event.stopImmediatePropagation()
+      event.preventDefault()
+    },
+    true
+  )
 
   function focusInput(selector: string): void {
     const input = element.querySelector<HTMLInputElement>(selector)

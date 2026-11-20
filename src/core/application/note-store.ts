@@ -100,6 +100,11 @@ export class NoteStore {
     return this.change((n) => ops.setTaskHour(n, taskId, hour))
   }
 
+  /** Mueve la tarea a la posición `toIndex` dentro de la lista de su día (orden manual). */
+  moveTask(taskId: string, toIndex: number): boolean {
+    return this.change((n) => ops.moveTask(n, taskId, toIndex))
+  }
+
   addSubtask(taskId: string, text: string): boolean {
     return this.change((n) => ops.addSubtask(n, taskId, text, this.deps.newId()))
   }

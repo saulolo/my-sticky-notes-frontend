@@ -1,5 +1,6 @@
 import type { DayKey } from './day'
 import { isValidHour, type Note, type Subtask, type Task } from './note'
+import { tasksByHour } from './note-operations'
 import { MIN_NOTE_HEIGHT, type StoredData, type WindowPrefs } from './window-prefs'
 
 type Obj = Record<string, unknown>
@@ -38,7 +39,7 @@ const isTaskList = (value: unknown): value is Task[] => Array.isArray(value) && 
 const DAY_KEY = /^\d{4}-\d{2}-\d{2}$/
 
 /**
- * Nota v2: `days` es un objeto `DayKey → Task[]`; `lastCarryOver` es opcional (`YYYY-MM-DD`).
+ * Nota v2/v3: `days` es un objeto `DayKey → Task[]`; `lastCarryOver` es opcional (`YYYY-MM-DD`).
  * Otras claves (p. ej. un `title` viejo) se ignoran. */
 export function isNote(value: unknown): value is Note {
   return (
@@ -59,6 +60,12 @@ interface NoteV1 {
 
 function isNoteV1(value: unknown): value is NoteV1 {
   return isObj(value) && typeof value.title === 'string' && isTaskList(value.tasks)
+}
+
+function sortDaysByHour(days: Record<DayKey, Task[]>): Record<DayKey, Task[]> {
+  const sorted: Record<DayKey, Task[]> = {}
+  for (const day of Object.keys(days)) sorted[day] = tasksByHour(days[day])
+  return sorted
 }
 
 const isCoordinate = (value: unknown): boolean =>
@@ -98,27 +105,29 @@ function parseWindowPrefs(value: unknown): WindowPrefs | null {
 }
 
 /**
- * Valida `StoredData` v1 o v2 y devuelve siempre v2; si no es válido, `null`.
- * - v2: se devuelve solo `note.days` (un `title` sobrante se descarta).
- * - v1: se valida con las reglas estrictas, sus tareas pasan a `note.days[today]`
- *   (sin tareas, `days` queda `{}`) y `title` se descarta.
+ * Valida `StoredData` v1, v2 o v3 y devuelve siempre v3; si no es válido, `null`.
+ * - v3: se devuelve solo `note.days` en el orden guardado (orden manual, sin reordenar).
+ * - v2: igual, pero cada lista se ordena por hora una sola vez (migración SPEC 08).
+ * - v1: se valida con las reglas estrictas, sus tareas pasan a `note.days[today]` ordenadas
+ *   por hora (sin tareas, `days` queda `{}`) y `title` se descarta.
  */
 export function validateStoredData(value: unknown, today: DayKey): StoredData | null {
   if (!isObj(value)) return null
   const prefs = parseWindowPrefs(value.window)
   if (prefs === null) return null
 
-  if (value.version === 2 && isNote(value.note)) {
-    const { days, lastCarryOver } = value.note
+  if ((value.version === 2 || value.version === 3) && isNote(value.note)) {
+    const { lastCarryOver } = value.note
+    const days = value.version === 2 ? sortDaysByHour(value.note.days) : value.note.days
     const note: Note = lastCarryOver === undefined ? { days } : { days, lastCarryOver }
-    return { version: 2, note, window: prefs }
+    return { version: 3, note, window: prefs }
   }
 
   if (value.version === 1 && isNoteV1(value.note)) {
     const { tasks } = value.note
     return {
-      version: 2,
-      note: { days: tasks.length > 0 ? { [today]: tasks } : {} },
+      version: 3,
+      note: { days: tasks.length > 0 ? { [today]: tasksByHour(tasks) } : {} },
       window: prefs
     }
   }

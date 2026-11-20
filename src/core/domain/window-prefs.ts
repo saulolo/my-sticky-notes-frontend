@@ -29,9 +29,12 @@ export const DEFAULT_WINDOW_PREFS: WindowPrefs = {
   alwaysOnTop: false
 }
 
-/** Formato del archivo en disco. La v1 (una sola lista `note.tasks`) se migra al leer. */
+/**
+ * Formato del archivo en disco. La v1 (una sola lista `note.tasks`) y la v2 (listas ordenadas
+ * por hora al mostrar) se migran al leer; v3 = orden manual (el del arreglo de cada día).
+ */
 export interface StoredData {
-  version: 2
+  version: 3
   note: Note
   window: WindowPrefs
 }

@@ -55,7 +55,7 @@ Cada día empieza limpio, con un clic traes las tareas de ayer y todo se guarda 
 |---|---|
 | **Una lista por día** | Pestañas **Ayer**, **Hoy** y **Mañana**, más un historial con los 5 días anteriores. Todos se pueden editar. |
 | **Hoy empieza limpio** | Nada se mueve solo: cada día conserva sus tareas, hechas o no. Si Hoy está vacío, el botón **Traer tareas de ayer** copia (sin marcar) la lista del último día con tareas. Se usa una vez al día. |
-| **Ordenadas por hora** | Cada tarea lleva su hora (0–23) y la lista se ordena sola. Una capa de subtareas, contraíble. |
+| **Orden manual** | Cada tarea lleva su hora (0–23) como etiqueta y tú decides el orden arrastrándolas. Una capa de subtareas, contraíble. |
 | **Progreso de un vistazo** | Anillo, `N de M hechas` y barra, contando tareas y subtareas. |
 | **Fijar = anclar** | La nota se pega al borde derecho de la pantalla, a todo el alto, y se abre sola al iniciar Windows. |
 | **Siempre encima** | Si quieres, la nota queda delante de las demás ventanas, libre o anclada. |
@@ -120,7 +120,8 @@ La cabecera tiene dos filas. Arrastra la fila de arriba para mover la nota.
 
 - **+** (Nueva tarea) muestra la fila "Añadir nueva tarea…" con la hora (vacía = la hora actual). **Enter** crea la tarea y deja el foco listo para la siguiente.
 - Cada tarea tiene casilla, hora, texto y botones para **añadir subtarea** y **eliminar**.
-- **Doble clic** en el texto o la hora para editarlos.
+- **Doble clic** en el texto o la hora para editarlos. Cambiar la hora no mueve la tarea.
+- **Arrastra** una tarea (clic sostenido en la fila, fuera de la casilla y los botones) para ponerla donde quieras. Las nuevas se añaden al final. Funciona en Ayer, Hoy, Mañana y el historial.
 - Una sola capa de **subtareas**, con borde a la izquierda y un contador para contraerlas.
 - Marcar una tarea **no** marca sus subtareas.
 - Las hechas se ven tachadas y atenuadas.
@@ -173,7 +174,7 @@ flowchart LR
     class D clean
 ```
 
-El botón **Traer tareas de ayer** aparece dentro de la lista vacía de Hoy, solo en esa pestaña, y se usa una vez al día (si borras todo después, no vuelve hasta el día siguiente). Las copias conservan hora y texto, quedan desmarcadas y Ayer no cambia.
+El botón **Traer tareas de ayer** aparece dentro de la lista vacía de Hoy, solo en esa pestaña, y se usa una vez al día (si borras todo después, no vuelve hasta el día siguiente). Las copias conservan hora, texto y orden, quedan desmarcadas y Ayer no cambia.
 
 Al abrir, la pestaña activa siempre es **Hoy**. Con la app abierta a medianoche, la pestaña salta sola al nuevo día.
 
@@ -186,6 +187,7 @@ Al abrir, la pestaña activa siempre es **Hoy**. Con la app abierta a medianoche
 | Crear tarea | **+** (Nueva tarea) y luego **Enter** (el foco queda listo para la siguiente) |
 | Descartar la tarea a medio escribir | **Esc** o clic fuera de la fila |
 | Editar texto u hora | **Doble clic** |
+| Reordenar tareas | **Mantén presionada** la fila de la tarea y arrástrala arriba o abajo (**Esc** cancela). Sus subtareas viajan con ella |
 | Cambiar el alto | Arrastra el **borde superior o inferior** de la nota (mín. 300 px, máx. el alto útil del monitor) |
 | Mover la nota | Arrastra la **fila de arriba** de la cabecera (libre, no anclada) |
 | Volver de la barra de tareas | Clic en el icono o **Alt+Tab** |
@@ -203,6 +205,7 @@ Al abrir, la pestaña activa siempre es **Hoy**. Con la app abierta a medianoche
 | **Dónde** | `%APPDATA%\my-sticky-notes\note.json` |
 | **Cuándo se guarda** | Solo, unos 300 ms después de cada cambio y al cerrar la app |
 | **Escritura segura** | Primero un archivo temporal y luego se renombra. Si el archivo se daña, se respalda como `note.corrupt-<fecha>.json` y la app arranca vacía |
+| **Orden** | Se guarda el orden en que dejas las tareas de cada día. Al actualizar desde una versión anterior, las notas existentes se ordenan por hora una sola vez y desde ahí mandas tú |
 | **Historial** | Se conservan hoy y los 5 días anteriores, con sus tareas hechas y pendientes tal como quedaron; los días más antiguos se borran |
 | **Copia de seguridad** | Copia `note.json` con la app cerrada. Para restaurar, vuelve a ponerlo en su sitio |
 | **Al desinstalar** | Las notas se conservan salvo que marques "Borrar también mis notas"; si reinstalas, las recuperas |
@@ -297,14 +300,14 @@ Capas con dependencia en un solo sentido: `core` no conoce Electron ni el DOM.
 ```
 src/
   core/        dominio + aplicación puros (sin electron ni DOM)
-    domain/      Note (días), Task, operaciones inmutables, rotación de día, validación y migración, días y etiquetas de fecha
+    domain/      Note (días), Task, operaciones inmutables, rotación de día, orden manual (`moveTask`), validación y migración, días y etiquetas de fecha
     application/ NoteStore (estado, autoguardado, rotación), puertos (Clock, NoteRepository)
   main/        proceso principal: ventana (alto, anclaje), carpeta de datos, instancia única,
                inicio automático, enlaces externos permitidos, IPC, JsonNoteRepository
   preload/     puente seguro: expone window.stickyApi
   renderer/    UI en TypeScript vanilla (ui/, styles/, infrastructure/)
 tests/         domain, application, main (lógica de ventana, carpetas y autoarranque sin Electron)
-specs/         especificaciones (01 nota de escritorio … 07 traer tareas de ayer)
+specs/         especificaciones (01 nota de escritorio … 08 orden manual de tareas)
 build/         recursos del instalador: icono, logo del autor, cabecera, installer.nsh
 scripts/       make-installer-art.mjs (npm run art)
 docs/          mockup de referencia (references/) e imágenes del README (img/)
