@@ -24,6 +24,17 @@ function setup(hour = 13): { store: NoteStore; clock: { date: Date } & Clock } {
 }
 
 describe('NoteStore', () => {
+  it('setAllDone marca y desmarca el día y devuelve false si no cambia', () => {
+    const { store } = setup()
+    store.addTask(D, 'A')
+    store.addTask(D, 'B')
+    expect(store.setAllDone(D, true)).toBe(true)
+    expect(tasksOf(store.getNote(), D).every((t) => t.done)).toBe(true)
+    expect(store.setAllDone(D, true)).toBe(false)
+    expect(store.setAllDone(D, false)).toBe(true)
+    expect(tasksOf(store.getNote(), D).some((t) => t.done)).toBe(false)
+  })
+
   it('arranca con la nota por defecto', () => {
     const { store } = setup()
     expect(store.getNote()).toEqual({ days: {} })

@@ -55,17 +55,44 @@ interface EditTarget {
   subtaskId: string | null
 }
 
-/** Botón para contraer/expandir las subtareas: chevron + cantidad de subtareas. */
+/** Botón para contraer/expandir las subtareas: chevron + `hechas/total`. */
 function subToggleHtml(task: Task): string {
-  if (task.subtasks.length === 0) return ''
+  const total = task.subtasks.length
+  if (total === 0) return ''
+  const done = task.subtasks.filter((sub) => sub.done).length
   const collapsed = task.collapsed === true
-  const label = collapsed ? 'Expandir subtareas' : 'Contraer subtareas'
-  return `<button class="sub-toggle${collapsed ? ' is-collapsed' : ''}" type="button" aria-expanded="${!collapsed}" aria-label="${label}" title="${label}">${icons.chevronDown(12)}<span>${task.subtasks.length}</span></button>`
+  const label = `${collapsed ? 'Expandir' : 'Contraer'} subtareas (${done} de ${total} hechas)`
+  const cls = `sub-toggle${collapsed ? ' is-collapsed' : ''}${done === total ? ' is-complete' : ''}`
+  // `--sub-progress` = relleno del chip según las subtareas hechas.
+  const progress = Math.round((done / total) * 100)
+  return `<button class="${cls}" style="--sub-progress: ${progress}%" type="button" aria-expanded="${!collapsed}" aria-label="${label}" title="${label}">${icons.chevronDown(10)}<span>${done}/${total}</span></button>`
 }
 
-function actionsHtml(deleteClass: string, deleteLabel: string, withAddSubtask: boolean): string {
+/** Estado del botón "contraer/expandir" de la fila padre (solo tareas con subtareas). */
+interface SubsToggle {
+  collapsed: boolean
+  /** Anima el giro del chevron (se acaba de alternar). */
+  flip: boolean
+}
+
+function actionsHtml(
+  deleteClass: string,
+  deleteLabel: string,
+  withAddSubtask: boolean,
+  subsToggle: SubsToggle | null = null
+): string {
+  const toggleLabel = subsToggle?.collapsed ? 'Expandir subtareas' : 'Contraer subtareas'
+  // Un solo chevron: apunta abajo si están contraídas y gira 180° (arriba) si están visibles.
+  const toggleCls = subsToggle
+    ? `ib sm toggle-subs${subsToggle.collapsed ? ' is-collapsed' : ''}${subsToggle.flip ? ' flip' : ''}`
+    : ''
   return `
     <span class="row-actions">
+      ${
+        subsToggle
+          ? `<button class="${toggleCls}" type="button" aria-expanded="${!subsToggle.collapsed}" aria-label="${toggleLabel}" title="${toggleLabel}">${icons.chevronDown(14)}</button>`
+          : ''
+      }
       ${
         withAddSubtask
           ? `<button class="ib sm add-sub" type="button" aria-label="Añadir subtarea" title="Añadir subtarea">${icons.plus(14)}</button>`
@@ -81,6 +108,8 @@ export function createTaskList(handlers: TaskListHandlers): TaskListView {
   element.append(addRow.element)
 
   let lastTasks: Task[] = []
+  /** Tarea cuyas subtareas se acaban de alternar: su botón anima el giro en el próximo render. */
+  let flipTaskId: string | null = null
   /** Tarea que tiene abierto el input de nueva subtarea (solo una a la vez). */
   let addingSubtaskFor: string | null = null
   let editing: EditTarget | null = null
@@ -231,12 +260,23 @@ export function createTaskList(handlers: TaskListHandlers): TaskListView {
     const doneCls = task.done ? ' is-done' : ''
     const row = el(`
       <div class="task">
-        <div class="row task-row">
+        <div class="row task-row${task.subtasks.length > 0 ? ' has-subtasks' : ''}">
           <button class="check${task.done ? ' is-on' : ''}" type="button" aria-label="Marcar tarea" aria-pressed="${task.done}">${task.done ? icons.check(12) : ''}</button>
           <span class="txt time${doneCls}"></span>
           <span class="txt task-text${doneCls}"></span>
           ${subToggleHtml(task)}
-          ${isEdit ? '' : actionsHtml('delete-task', 'Eliminar tarea', true)}
+          ${
+            isEdit
+              ? ''
+              : actionsHtml(
+                  'delete-task',
+                  'Eliminar tarea',
+                  true,
+                  task.subtasks.length > 0
+                    ? { collapsed: task.collapsed === true, flip: flipTaskId === task.id }
+                    : null
+                )
+          }
         </div>
       </div>`)
     row.dataset.taskId = task.id
@@ -308,6 +348,7 @@ export function createTaskList(handlers: TaskListHandlers): TaskListView {
       if (node === ref) ref = ref.nextElementSibling
       else element.insertBefore(node, ref)
     }
+    flipTaskId = null
   }
 
   // ---------- Orden manual: arrastrar una tarea (SPEC 08) ----------
@@ -528,6 +569,21 @@ export function createTaskList(handlers: TaskListHandlers): TaskListView {
     input?.select()
   }
 
+  // Clic simple en la fila = alternar subtareas. Se difiere para que un doble clic (editar el
+  // texto o la hora) lo cancele y no cambie el estado.
+  const ROW_CLICK_DELAY_MS = 250
+  let pendingRowToggle: ReturnType<typeof setTimeout> | null = null
+  /** Contrae o expande las subtareas de una tarea (y anima el chevron de su botón). */
+  const toggleSubtasks = (taskId: string): void => {
+    flipTaskId = taskId
+    handlers.onToggleSubtasksCollapsed(taskId)
+  }
+  const cancelRowToggle = (): void => {
+    if (pendingRowToggle === null) return
+    clearTimeout(pendingRowToggle)
+    pendingRowToggle = null
+  }
+
   element.addEventListener('click', (event) => {
     const target = event.target as HTMLElement
     const taskId = target.closest<HTMLElement>('.task')?.dataset.taskId
@@ -538,12 +594,12 @@ export function createTaskList(handlers: TaskListHandlers): TaskListView {
       handlers.onToggleTask(taskId)
     } else if (target.closest('.sub-row > .check') && subtaskId) {
       handlers.onToggleSubtask(taskId, subtaskId)
-    } else if (target.closest('.sub-toggle')) {
-      handlers.onToggleSubtasksCollapsed(taskId)
+    } else if (target.closest('.sub-toggle, .toggle-subs')) {
+      toggleSubtasks(taskId)
     } else if (target.closest('.add-sub')) {
       // Si estaban contraídas, se expanden para ver dónde cae la nueva subtarea.
       if (lastTasks.find((t) => t.id === taskId)?.collapsed) {
-        handlers.onToggleSubtasksCollapsed(taskId)
+        toggleSubtasks(taskId)
       }
       addingSubtaskFor = taskId
       render(lastTasks)
@@ -552,11 +608,21 @@ export function createTaskList(handlers: TaskListHandlers): TaskListView {
       handlers.onDeleteTask(taskId)
     } else if (target.closest('.delete-sub') && subtaskId) {
       handlers.onDeleteSubtask(taskId, subtaskId)
+    } else if (target.closest('.task-row') && !target.closest('button, input')) {
+      cancelRowToggle()
+      // El segundo clic de un doble clic no programa nada: lo atiende `dblclick`.
+      if (event.detail > 1) return
+      if (!lastTasks.find((t) => t.id === taskId)?.subtasks.length) return
+      pendingRowToggle = setTimeout(() => {
+        pendingRowToggle = null
+        toggleSubtasks(taskId)
+      }, ROW_CLICK_DELAY_MS)
     }
   })
 
   // Doble clic sobre el texto de una tarea o subtarea = editarlo.
   element.addEventListener('dblclick', (event) => {
+    cancelRowToggle()
     const target = event.target as HTMLElement
     const taskId = target.closest<HTMLElement>('.task')?.dataset.taskId
     if (!taskId) return

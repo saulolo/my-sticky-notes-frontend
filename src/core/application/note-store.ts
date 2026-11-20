@@ -113,6 +113,11 @@ export class NoteStore {
     return this.change((n) => ops.toggleTask(n, taskId))
   }
 
+  /** Marca o desmarca todas las tareas y subtareas del día `day`. */
+  setAllDone(day: DayKey, done: boolean): boolean {
+    return this.change((n) => ops.setAllDone(n, day, done))
+  }
+
   toggleSubtasksCollapsed(taskId: string): boolean {
     return this.change((n) => ops.toggleSubtasksCollapsed(n, taskId))
   }

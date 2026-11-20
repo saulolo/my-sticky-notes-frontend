@@ -18,7 +18,7 @@ function valid(): Record<string, unknown> {
   return {
     version: 3,
     note: { days: { '2026-11-14': [task()] } },
-    window: { pinned: false, collapsed: false, x: null, y: null, height: null, alwaysOnTop: false }
+    window: { pinned: false, collapsed: false, x: null, y: null, height: null, width: null, alwaysOnTop: false }
   }
 }
 
@@ -216,6 +216,7 @@ describe('validateStoredData alto', () => {
       x: 10,
       y: 20,
       height: null,
+      width: null,
       alwaysOnTop: false
     })
   })
@@ -229,6 +230,7 @@ describe('validateStoredData alto', () => {
       x: 10,
       y: 20,
       height: 600,
+      width: null,
       alwaysOnTop: false
     })
   })
@@ -243,6 +245,14 @@ describe('validateStoredData alto', () => {
     expect(validateStoredData(withWindow({ height: 700 }), TODAY)?.window.height).toBe(700)
   })
 
+  it('un archivo sin width carga con width null', () => {
+    expect(validateStoredData(withWindow({}), TODAY)?.window.width).toBeNull()
+  })
+
+  it('conserva el width guardado', () => {
+    expect(validateStoredData(withWindow({ width: 420 }), TODAY)?.window.width).toBe(420)
+  })
+
   it('descarta claves sobrantes (p. ej. un dock de una versión anterior)', () => {
     const data = withWindow({ extra: 1, dock: { top: 5, height: 400 } })
     const prefs = validateStoredData(data, TODAY)?.window
@@ -255,6 +265,9 @@ describe('validateStoredData alto', () => {
     ['height decimal', { height: 500.5 }],
     ['height negativo', { height: -400 }],
     ['height como texto', { height: '500' }],
+    ['width menor que 308', { width: 307 }],
+    ['width decimal', { width: 400.5 }],
+    ['width como texto', { width: '400' }],
     ['alwaysOnTop como texto', { alwaysOnTop: 'true' }],
     ['alwaysOnTop null', { alwaysOnTop: null }]
   ])('rechaza preferencias con %s', (_name, patch) => {
@@ -278,6 +291,7 @@ describe('validateStoredData migración v1', () => {
         x: null,
         y: null,
         height: null,
+        width: null,
         alwaysOnTop: false
       }
     })

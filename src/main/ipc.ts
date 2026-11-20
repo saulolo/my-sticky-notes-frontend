@@ -3,7 +3,7 @@ import type { Note } from '../core/domain/note'
 import type { WindowState } from '../core/domain/window-prefs'
 import { externalLinkUrl } from './external-links'
 import type { JsonNoteRepository } from './json-note-repository'
-import type { WindowControls } from './window-controls'
+import type { ResizeEdge, WindowControls } from './window-controls'
 
 export const IPC = {
   noteLoad: 'note:load',
@@ -25,13 +25,15 @@ function assertBoolean(value: unknown): boolean {
   return value
 }
 
-function assertScreenY(value: unknown): number {
+function assertScreenPos(value: unknown): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) throw new Error('Se esperaba un número')
   return value
 }
 
-function assertEdge(value: unknown): 'top' | 'bottom' {
-  if (value !== 'top' && value !== 'bottom') throw new Error('Se esperaba "top" o "bottom"')
+function assertEdge(value: unknown): ResizeEdge {
+  if (value !== 'top' && value !== 'bottom' && value !== 'left' && value !== 'right') {
+    throw new Error('Se esperaba "top", "bottom", "left" o "right"')
+  }
   return value
 }
 
@@ -49,12 +51,13 @@ export function registerIpc(repository: JsonNoteRepository, controls: WindowCont
   ipcMain.handle(IPC.windowSetAlwaysOnTop, (_event, alwaysOnTop: unknown): void =>
     controls.setAlwaysOnTop(assertBoolean(alwaysOnTop))
   )
-  // Arrastre de los bordes: mensajes sin respuesta (uno por pointermove).
-  ipcMain.on(IPC.windowResizeStart, (_event, edge: unknown, screenY: unknown): void =>
-    controls.startResize(assertEdge(edge), assertScreenY(screenY))
+  // Arrastre de los bordes: mensajes sin respuesta (uno por pointermove). La coordenada es
+  // `screenY` en los bordes de arriba/abajo y `screenX` en los laterales.
+  ipcMain.on(IPC.windowResizeStart, (_event, edge: unknown, pos: unknown): void =>
+    controls.startResize(assertEdge(edge), assertScreenPos(pos))
   )
-  ipcMain.on(IPC.windowResizeMove, (_event, screenY: unknown): void =>
-    controls.moveResize(assertScreenY(screenY))
+  ipcMain.on(IPC.windowResizeMove, (_event, pos: unknown): void =>
+    controls.moveResize(assertScreenPos(pos))
   )
   ipcMain.on(IPC.windowResizeEnd, (): void => controls.endResize())
   ipcMain.on(IPC.windowMinimize, (): void => controls.minimize())

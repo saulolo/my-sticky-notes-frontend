@@ -10,6 +10,8 @@ export interface WindowPrefs {
   y: number | null
   /** Alto libre de la nota, sin márgenes. null = alto por defecto. */
   height: number | null
+  /** Ancho libre de la nota, sin márgenes. null = ancho por defecto (360). Anclada siempre mide 308. */
+  width: number | null
   /** Siempre encima de las demás ventanas. Independiente de `pinned` (libre o anclada). */
   alwaysOnTop: boolean
 }
@@ -20,12 +22,16 @@ export type WindowState = WindowPrefs & { docked: boolean }
 /** Alto mínimo de la nota (sin márgenes), libre o anclada. */
 export const MIN_NOTE_HEIGHT = 300
 
+/** Ancho mínimo de la nota libre (sin márgenes): el ancho de la anclada, cabe la cabecera. */
+export const MIN_NOTE_WIDTH = 308
+
 export const DEFAULT_WINDOW_PREFS: WindowPrefs = {
   pinned: false,
   collapsed: false,
   x: null,
   y: null,
   height: null,
+  width: null,
   alwaysOnTop: false
 }
 

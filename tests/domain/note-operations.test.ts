@@ -9,6 +9,7 @@ import {
   editTask,
   moveTask,
   progress,
+  setAllDone,
   setTaskHour,
   tasksByHour,
   tasksOf,
@@ -31,6 +32,43 @@ function noteWith(): Note {
   note = addSubtask(note, 't1', 'Sin sal', 's2')
   return note
 }
+
+describe('setAllDone', () => {
+  it('marca todas las tareas y subtareas del día', () => {
+    const note = setAllDone(noteWith(), D, true)
+    expect(T(note).every((t) => t.done && t.subtasks.every((s) => s.done))).toBe(true)
+    expect(prog(note)).toEqual({ done: 4, total: 4, percent: 100 })
+  })
+
+  it('desmarca todo, también lo que estaba mezclado', () => {
+    let note = toggleTask(noteWith(), 't2')
+    note = toggleSubtask(note, 't1', 's1')
+    note = setAllDone(note, D, false)
+    expect(prog(note)).toEqual({ done: 0, total: 4, percent: 0 })
+  })
+
+  it('completa solo lo que falta y conserva el orden', () => {
+    const note = setAllDone(toggleTask(noteWith(), 't1'), D, true)
+    expect(T(note).map((t) => t.id)).toEqual(['t1', 't2'])
+    expect(prog(note).done).toBe(4)
+  })
+
+  it('devuelve el mismo objeto si nada cambia o el día está vacío', () => {
+    const note = noteWith()
+    expect(setAllDone(note, D, false)).toBe(note)
+    expect(setAllDone(setAllDone(note, D, true), D, true)).toEqual(setAllDone(note, D, true))
+    const done = setAllDone(note, D, true)
+    expect(setAllDone(done, D, true)).toBe(done)
+    expect(setAllDone(note, '2026-11-13', true)).toBe(note)
+  })
+
+  it('no toca otros días ni muta la nota original', () => {
+    const other = addTask(noteWith(), '2026-11-13', 'Otro', { id: 'x', now: at(10) })
+    const next = setAllDone(other, D, true)
+    expect(tasksOf(next, '2026-11-13')).toBe(tasksOf(other, '2026-11-13'))
+    expect(T(other).some((t) => t.done)).toBe(false)
+  })
+})
 
 describe('moveTask', () => {
   const noteOf = (...ids: string[]): Note =>

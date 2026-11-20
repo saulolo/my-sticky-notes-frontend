@@ -6,17 +6,21 @@ import {
   DOCKED_NOTE_WIDTH,
   FREE_NOTE_WIDTH,
   MIN_NOTE_HEIGHT,
+  MIN_NOTE_WIDTH,
   WINDOW_WIDTH,
   dockedBounds,
   fitFreeBounds,
   freeResizeLimits,
+  freeWidthLimits,
   freeBounds,
   isHeaderVisible,
   pickDockDisplay,
   resizeHeight,
+  resizeWidth,
   type DisplayInfo,
   type Rect,
-  type ResizeLimits
+  type ResizeLimits,
+  type WidthLimits
 } from '../../src/main/window-metrics'
 
 const main: Rect = { x: 0, y: 0, width: 1920, height: 1040 }
@@ -146,6 +150,78 @@ describe('freeBounds', () => {
   })
 })
 
+describe('freeBounds con ancho', () => {
+  it('ancho guardado + márgenes laterales, colapsada o no', () => {
+    expect(freeBounds(0, 0, 700, false, 420).width).toBe(540)
+    expect(freeBounds(0, 0, 700, true, 420).width).toBe(540)
+  })
+})
+
+describe('resizeWidth', () => {
+  const start: Rect = { x: 500, y: 100, width: 480, height: 662 }
+  const free: WidthLimits = {
+    minWidth: MIN_NOTE_WIDTH + 120,
+    maxWidth: 1800,
+    left: -Infinity,
+    right: Infinity
+  }
+
+  it('el mínimo de la nota es el ancho de la anclada', () => {
+    expect(MIN_NOTE_WIDTH).toBe(DOCKED_NOTE_WIDTH)
+  })
+
+  it('derecha: cambia el ancho y no mueve el borde izquierdo', () => {
+    expect(resizeWidth(start, 'right', 50, free)).toEqual({ ...start, width: 530 })
+  })
+
+  it('izquierda: mueve el borde izquierdo y deja quieto el derecho', () => {
+    const r = resizeWidth(start, 'left', -50, free)
+    expect(r).toEqual({ ...start, x: 450, width: 530 })
+    expect(r.x + r.width).toBe(start.x + start.width)
+  })
+
+  it('aplica el ancho mínimo sin mover el borde opuesto', () => {
+    expect(resizeWidth(start, 'right', -1000, free)).toEqual({ ...start, width: 428 })
+    const r = resizeWidth(start, 'left', 1000, free)
+    expect(r.width).toBe(428)
+    expect(r.x + r.width).toBe(start.x + start.width)
+  })
+
+  it('aplica el ancho máximo', () => {
+    expect(resizeWidth(start, 'right', 5000, free).width).toBe(1800)
+    expect(resizeWidth(start, 'left', -5000, free).width).toBe(1800)
+  })
+
+  it('no pasa del borde izquierdo ni derecho del área útil', () => {
+    const limits: WidthLimits = { minWidth: 428, maxWidth: 1800, left: 0, right: 1000 }
+    expect(resizeWidth(start, 'right', 5000, limits)).toEqual({ ...start, width: 500 })
+    expect(resizeWidth(start, 'left', -5000, limits)).toEqual({ ...start, x: 0, width: 980 })
+  })
+
+  it('redondea a píxeles enteros', () => {
+    expect(resizeWidth(start, 'right', 10.4, free).width).toBe(490)
+  })
+})
+
+describe('freeWidthLimits', () => {
+  const area: Rect = { x: 0, y: 0, width: 1920, height: 1040 }
+
+  it('nota entre 308 y el área útil menos los márgenes laterales', () => {
+    expect(freeWidthLimits(area)).toEqual({
+      minWidth: 428,
+      maxWidth: 1920,
+      left: -60,
+      right: 1980
+    })
+  })
+
+  it('con el área desplazada, los bordes siguen al área', () => {
+    const l = freeWidthLimits({ x: 1920, y: 0, width: 1280, height: 1024 })
+    expect(l.left).toBe(1860)
+    expect(l.right).toBe(3260)
+  })
+})
+
 describe('resizeHeight', () => {
   const start: Rect = { x: 100, y: 200, width: 480, height: 662 }
   const free: ResizeLimits = {
@@ -190,6 +266,16 @@ describe('resizeHeight', () => {
 
 describe('fitFreeBounds', () => {
   const area: Rect = { x: 0, y: 0, width: 1920, height: 816 }
+
+  it('una nota más ancha que el área útil se acorta', () => {
+    const wide = freeBounds(0, 0, 600, false, 5000)
+    expect(fitFreeBounds(wide, area).width).toBe(1920)
+  })
+
+  it('una nota ancha que se sale por la derecha se corre a la izquierda', () => {
+    const rect = freeBounds(1700, 0, 600, false, 600)
+    expect(fitFreeBounds(rect, area).x).toBe(1920 - 600 - 60)
+  })
 
   it('una nota que cabe no se toca', () => {
     const rect = freeBounds(100, 50, 600, false)

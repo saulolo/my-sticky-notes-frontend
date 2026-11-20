@@ -56,10 +56,10 @@ Cada día empieza limpio, con un clic traes las tareas de ayer y todo se guarda 
 | **Una lista por día** | Pestañas **Ayer**, **Hoy** y **Mañana**, más un historial con los 5 días anteriores. Todos se pueden editar. |
 | **Hoy empieza limpio** | Nada se mueve solo: cada día conserva sus tareas, hechas o no. Si Hoy está vacío, el botón **Traer tareas de ayer** copia (sin marcar) la lista del último día con tareas. Se usa una vez al día. |
 | **Orden manual** | Cada tarea lleva su hora (0–23) como etiqueta y tú decides el orden arrastrándolas. Una capa de subtareas, contraíble. |
-| **Progreso de un vistazo** | Anillo, `N de M hechas` y barra, contando tareas y subtareas. |
+| **Progreso de un vistazo** | Anillo, `N de M hechas` y barra, contando tareas y subtareas. Un botón **marca o desmarca todas** las del día. |
 | **Fijar = anclar** | La nota se pega al borde derecho de la pantalla, a todo el alto, y se abre sola al iniciar Windows. |
 | **Siempre encima** | Si quieres, la nota queda delante de las demás ventanas, libre o anclada. |
-| **A tu medida** | Alto ajustable arrastrando los bordes; colapsar a solo la cabecera o minimizar a la barra de tareas. |
+| **A tu medida** | Alto y ancho ajustables arrastrando los bordes (la nota libre); colapsar a solo la cabecera o minimizar a la barra de tareas. |
 | **Se guarda sola** | Sin botón de guardar, sin cuenta y sin nube: un archivo en tu PC. |
 
 ---
@@ -113,7 +113,7 @@ La cabecera tiene dos filas. Arrastra la fila de arriba para mover la nota.
 
 | Fila | Izquierda | Centro | Derecha |
 |---|---|---|---|
-| **Arriba** | Configuración · fecha corta del día (`Lun, 16 nov`) | zona para arrastrar | Siempre encima · Fijar · Colapsar · Minimizar · Cerrar |
+| **Arriba** | Configuración · fecha corta del día (`Lun, 16 nov`) | zona para arrastrar | Siempre encima · Fijar · Colapsar (︿/﹀) · Minimizar (—) · Cerrar |
 | **Abajo** | **+** Nueva tarea | **Ayer · Hoy · Mañana** | Días anteriores |
 
 ### 2. Tareas y subtareas
@@ -122,13 +122,15 @@ La cabecera tiene dos filas. Arrastra la fila de arriba para mover la nota.
 - Cada tarea tiene casilla, hora, texto y botones para **añadir subtarea** y **eliminar**.
 - **Doble clic** en el texto o la hora para editarlos. Cambiar la hora no mueve la tarea.
 - **Arrastra** una tarea (clic sostenido en la fila, fuera de la casilla y los botones) para ponerla donde quieras. Las nuevas se añaden al final. Funciona en Ayer, Hoy, Mañana y el historial.
-- Una sola capa de **subtareas**, con borde a la izquierda y un contador para contraerlas.
+- Una sola capa de **subtareas**, con borde a la izquierda. Un contador `hechas/total` (por ejemplo `1/3`; en color de acento cuando están todas hechas) y un botón con chevron al pasar el mouse las contraen o expanden. También un **clic** en la fila de la tarea (el doble clic sigue editando).
 - Marcar una tarea **no** marca sus subtareas.
 - Las hechas se ven tachadas y atenuadas.
 
 ### 3. Progreso
 
 Un anillo pequeño, el texto `N de M hechas` y una barra, todos con el mismo porcentaje. Cuentan tareas **y** subtareas del día activo.
+
+A la derecha del texto, el botón de doble check **marca todas** las tareas y subtareas del día; con todo hecho pasa a **desmarcar todas**. No se ve si el día no tiene tareas.
 
 ### 4. Fijar, colapsar y minimizar
 
@@ -143,10 +145,10 @@ Un anillo pequeño, el texto `N de M hechas` y una barra, todos con el mismo por
 |---|---|
 | **Fijar** | Ancla la nota al borde derecho del monitor no principal más a la derecha (con un solo monitor, el principal), a todo el alto sin tapar la barra de tareas. Anclada no se mueve ni cambia de alto, y en el pie dice **Fijada**. Además, **la app se abre sola al iniciar sesión**. Desfijar la devuelve a su posición y alto libres. |
 | **Siempre encima** | La ventana queda delante de las demás, libre o anclada. Es independiente de Fijar. |
-| **Colapsar** | Deja solo la fila de arriba de la cabecera. Otro clic la expande. |
-| **Minimizar** | Minimizado nativo de Windows; vuelve con el icono de la barra de tareas o Alt+Tab, tal como estaba. |
+| **Colapsar** | Deja solo la fila de arriba de la cabecera (chevron arriba). Con la nota colapsada el botón dice **Expandir** y muestra el chevron abajo. |
+| **Minimizar** (—) | Minimizado nativo de Windows; vuelve con el icono de la barra de tareas o Alt+Tab, tal como estaba. |
 
-La nota mide **360 px** libre y **308 px** anclada. Se recuerdan posición, alto, fijada, colapsada y "Siempre encima"; si la posición queda fuera de pantalla, se centra.
+La nota libre mide **360 px** por defecto y puedes cambiar su **ancho** (mínimo 308 px) y su **alto** arrastrando los bordes; anclada mide **308 px** fijos. Se recuerdan posición, alto, ancho, fijada, colapsada y "Siempre encima"; si la posición queda fuera de pantalla, se centra.
 
 ### 5. Acerca de
 

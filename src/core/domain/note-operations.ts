@@ -112,6 +112,25 @@ export function toggleTask(note: Note, taskId: string): Note {
   return mapTask(note, taskId, (task) => ({ ...task, done: !task.done }))
 }
 
+/**
+ * Marca (`done = true`) o desmarca todas las tareas y subtareas del día. Mismo objeto si
+ * el día está vacío o ya estaba todo en ese estado.
+ */
+export function setAllDone(note: Note, day: DayKey, done: boolean): Note {
+  const tasks = tasksOf(note, day)
+  const changed = tasks.some((t) => t.done !== done || t.subtasks.some((s) => s.done !== done))
+  if (!changed) return note
+  return withDay(
+    note,
+    day,
+    tasks.map((t) => ({
+      ...t,
+      done,
+      subtasks: t.subtasks.map((s) => (s.done === done ? s : { ...s, done }))
+    }))
+  )
+}
+
 export function toggleSubtask(note: Note, taskId: string, subtaskId: string): Note {
   return mapSubtask(note, taskId, subtaskId, (sub) => ({ ...sub, done: !sub.done }))
 }

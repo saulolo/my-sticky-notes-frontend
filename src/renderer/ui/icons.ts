@@ -14,6 +14,9 @@ export const icons = {
       filled ? 'currentColor' : 'none'
     ),
   chevronDown: (size = 12): string => svg(size, 2.5, '<path d="m6 9 6 6 6-6"></path>'),
+  chevronUp: (size = 12): string => svg(size, 2.5, '<path d="m18 15-6-6-6 6"></path>'),
+  checkCheck: (size = 14): string =>
+    svg(size, 2.5, '<path d="M18 6 7 17l-5-5"></path><path d="m22 10-7.5 7.5L13 16"></path>'),
   check: (size = 12): string => svg(size, 3, '<path d="M20 6 9 17l-5-5"></path>'),
   trash: (size = 14): string =>
     svg(
@@ -27,8 +30,6 @@ export const icons = {
       2,
       '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path><path d="M12 7v5l4 2"></path>'
     ),
-  arrowDown: (size = 15): string =>
-    svg(size, 2, '<path d="M12 5v14"></path><path d="m19 12-7 7-7-7"></path>'),
   layers: (size = 15): string =>
     svg(
       size,
