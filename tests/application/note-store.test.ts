@@ -63,6 +63,24 @@ describe('NoteStore', () => {
     expect(store.setTaskHour('id1', 30)).toBe(false)
   })
 
+  it('moveTask reordena, avisa a los suscriptores y devuelve false si no cambia', () => {
+    const { store } = setup()
+    store.addTask(D, 'a')
+    store.addTask(D, 'b')
+    store.addTask(D, 'c')
+    const listener = vi.fn()
+    store.subscribe(listener)
+
+    expect(store.moveTask('id1', 2)).toBe(true)
+    expect(tasksOf(store.getNote(), D).map((t) => t.id)).toEqual(['id2', 'id3', 'id1'])
+    expect(listener).toHaveBeenCalledTimes(1)
+
+    expect(store.moveTask('id1', 2)).toBe(false)
+    expect(store.moveTask('nope', 0)).toBe(false)
+    expect(store.moveTask('id1', 1.5)).toBe(false)
+    expect(listener).toHaveBeenCalledTimes(1)
+  })
+
   it('texto vacío devuelve false y no avisa a los suscriptores', () => {
     const { store } = setup()
     const listener = vi.fn()

@@ -10,7 +10,7 @@ import {
 } from '../core/domain/window-prefs'
 
 function defaults(): StoredData {
-  return { version: 2, note: createEmptyNote(), window: { ...DEFAULT_WINDOW_PREFS } }
+  return { version: 3, note: createEmptyNote(), window: { ...DEFAULT_WINDOW_PREFS } }
 }
 
 /**
@@ -18,7 +18,8 @@ function defaults(): StoredData {
  * - Escritura atómica: se escribe `note.json.tmp` y luego se renombra.
  * - Archivo corrupto o de versión desconocida: se respalda como
  *   `note.corrupt-<timestamp>.json` y se arranca con los valores por defecto.
- * - Archivo v1: sus tareas pasan a la lista de `today()`; el siguiente guardado escribe v2.
+ * - Archivo v1: sus tareas pasan a la lista de `today()`; el siguiente guardado escribe v3.
+ *   Un archivo v2 se ordena por hora una sola vez al leerlo (SPEC 08).
  */
 export class JsonNoteRepository {
   private readonly filePath: string

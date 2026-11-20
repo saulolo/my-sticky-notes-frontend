@@ -139,8 +139,28 @@ export function setTaskHour(note: Note, taskId: string, hour: number): Note {
 }
 
 /**
+ * Mueve la tarea dentro de la lista de su día a la posición final `toIndex` (0 = primera).
+ * `toIndex` se limita a `[0, n − 1]`. Devuelve el mismo `Note` si el id no existe, `toIndex`
+ * no es un entero o la tarea ya está en esa posición.
+ */
+export function moveTask(note: Note, taskId: string, toIndex: number): Note {
+  if (!Number.isInteger(toIndex)) return note
+  const day = findDay(note, taskId)
+  if (day === undefined) return note
+  const tasks = note.days[day]
+  const from = tasks.findIndex((t) => t.id === taskId)
+  const to = Math.min(Math.max(toIndex, 0), tasks.length - 1)
+  if (from === to) return note
+  const next = [...tasks]
+  const [task] = next.splice(from, 1)
+  next.splice(to, 0, task)
+  return withDay(note, day, next)
+}
+
+/**
  * Copia de las tareas ordenada por hora ascendente; a igual hora, por `createdAt`
  * y luego por orden de inserción (el sort es estable). No muta la lista original.
+ * Desde la SPEC 08 solo la usa la migración v1/v2 → v3; la lista se muestra en orden manual.
  */
 export function tasksByHour(tasks: readonly Task[]): Task[] {
   return [...tasks].sort(

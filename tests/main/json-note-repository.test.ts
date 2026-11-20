@@ -31,7 +31,7 @@ describe('JsonNoteRepository.load', () => {
   it('sin archivo devuelve los valores por defecto (primer arranque)', async () => {
     const data = await repo().load()
     expect(data).toEqual({
-      version: 2,
+      version: 3,
       note: { days: {} },
       window: {
         pinned: false,
@@ -47,7 +47,7 @@ describe('JsonNoteRepository.load', () => {
 
   it('lee un archivo válido', async () => {
     const stored = {
-      version: 2,
+      version: 3,
       note: addTask(createEmptyNote(), TODAY, 'Guardada', {
         id: 't1',
         now: new Date(2026, 10, 12, 9)
@@ -58,7 +58,50 @@ describe('JsonNoteRepository.load', () => {
     expect(await repo().load()).toEqual(stored)
   })
 
-  it('archivo v1: carga sus tareas en hoy y el siguiente guardado escribe v2', async () => {
+  it('archivo v2: ordena por hora al leer, no reescribe y el siguiente guardado escribe v3', async () => {
+    const mk = (id: string, hour: number): object => ({
+      id,
+      hour,
+      text: id,
+      done: false,
+      subtasks: [],
+      createdAt: '2026-11-12T10:00:00.000Z'
+    })
+    const v2 = {
+      version: 2,
+      note: { days: { [TODAY]: [mk('a', 15), mk('b', 8), mk('c', 12)] } },
+      window: {
+        pinned: false,
+        collapsed: false,
+        x: null,
+        y: null,
+        height: null,
+        alwaysOnTop: false
+      }
+    }
+    await writeFile(file, JSON.stringify(v2), 'utf8')
+
+    const r = repo()
+    const data = await r.load()
+    expect(data.version).toBe(3)
+    expect(data.note.days[TODAY].map((t) => t.id)).toEqual(['b', 'c', 'a'])
+    expect(JSON.parse(await readFile(file, 'utf8')).version).toBe(2)
+
+    await r.saveNote(data.note)
+    const saved = JSON.parse(await readFile(file, 'utf8'))
+    expect(saved.version).toBe(3)
+    expect(saved.note.days[TODAY].map((t: { id: string }) => t.id)).toEqual(['b', 'c', 'a'])
+
+    // Una vez migrado, el orden manual se respeta al releer.
+    const manual = {
+      days: { [TODAY]: [data.note.days[TODAY][2], data.note.days[TODAY][0]] }
+    }
+    await r.saveNote(manual)
+    const again = await repo().load()
+    expect(again.note.days[TODAY].map((t) => t.id)).toEqual(['a', 'b'])
+  })
+
+  it('archivo v1: carga sus tareas en hoy y el siguiente guardado escribe v3', async () => {
     const tasks = [{ id: 'a', hour: 9, text: 'Vieja', done: false, subtasks: [], createdAt: 'z' }]
     const v1 = {
       version: 1,
@@ -70,7 +113,7 @@ describe('JsonNoteRepository.load', () => {
     const r = repo()
     const data = await r.load()
     expect(data).toEqual({
-      version: 2,
+      version: 3,
       note: { days: { [TODAY]: tasks } },
       window: { pinned: true, collapsed: false, x: 5, y: 6, height: null, alwaysOnTop: false }
     })
@@ -79,7 +122,7 @@ describe('JsonNoteRepository.load', () => {
 
     await r.saveNote(data.note)
     const saved = JSON.parse(await readFile(file, 'utf8'))
-    expect(saved.version).toBe(2)
+    expect(saved.version).toBe(3)
     expect(saved.note).toEqual(data.note)
     expect(saved.window).toEqual(data.window)
   })
@@ -131,7 +174,7 @@ describe('JsonNoteRepository.save', () => {
 
     expect(await readdir(dir)).toEqual(['note.json'])
     const saved = JSON.parse(await readFile(file, 'utf8'))
-    expect(saved.version).toBe(2)
+    expect(saved.version).toBe(3)
     expect(saved.note).toEqual(note)
   })
 

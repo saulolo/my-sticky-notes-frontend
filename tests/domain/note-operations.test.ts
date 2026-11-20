@@ -7,6 +7,7 @@ import {
   deleteTask,
   editSubtask,
   editTask,
+  moveTask,
   progress,
   setTaskHour,
   tasksByHour,
@@ -30,6 +31,73 @@ function noteWith(): Note {
   note = addSubtask(note, 't1', 'Sin sal', 's2')
   return note
 }
+
+describe('moveTask', () => {
+  const noteOf = (...ids: string[]): Note =>
+    ids.reduce((note, id, i) => addTask(note, D, id, { id, now: at(8 + i) }), createEmptyNote())
+  const ids = (note: Note): string[] => T(note).map((t) => t.id)
+
+  it('mueve hacia abajo', () => {
+    expect(ids(moveTask(noteOf('a', 'b', 'c', 'd'), 'a', 2))).toEqual(['b', 'c', 'a', 'd'])
+  })
+
+  it('mueve hacia arriba', () => {
+    expect(ids(moveTask(noteOf('a', 'b', 'c', 'd'), 'd', 1))).toEqual(['a', 'd', 'b', 'c'])
+  })
+
+  it('mueve al principio y al final', () => {
+    const note = noteOf('a', 'b', 'c')
+    expect(ids(moveTask(note, 'c', 0))).toEqual(['c', 'a', 'b'])
+    expect(ids(moveTask(note, 'a', 2))).toEqual(['b', 'c', 'a'])
+  })
+
+  it('limita toIndex a [0, n − 1]', () => {
+    const note = noteOf('a', 'b', 'c')
+    expect(ids(moveTask(note, 'b', 99))).toEqual(['a', 'c', 'b'])
+    expect(ids(moveTask(note, 'b', -5))).toEqual(['b', 'a', 'c'])
+  })
+
+  it('devuelve el mismo Note si ya está en esa posición', () => {
+    const note = noteOf('a', 'b', 'c')
+    expect(moveTask(note, 'b', 1)).toBe(note)
+    expect(moveTask(note, 'c', 99)).toBe(note)
+    expect(moveTask(note, 'a', -1)).toBe(note)
+  })
+
+  it('devuelve el mismo Note con id inexistente, toIndex no entero o una sola tarea', () => {
+    const note = noteOf('a', 'b')
+    expect(moveTask(note, 'zzz', 0)).toBe(note)
+    expect(moveTask(note, 'a', 0.5)).toBe(note)
+    expect(moveTask(note, 'a', NaN)).toBe(note)
+    const single = noteOf('a')
+    expect(moveTask(single, 'a', 3)).toBe(single)
+  })
+
+  it('no muta la nota original y conserva las subtareas', () => {
+    const note = noteWith()
+    const before = JSON.stringify(note)
+    const moved = moveTask(note, 't1', 1)
+    expect(JSON.stringify(note)).toBe(before)
+    expect(ids(moved)).toEqual(['t2', 't1'])
+    expect(T(moved)[1].subtasks.map((s) => s.id)).toEqual(['s1', 's2'])
+  })
+
+  it('solo reordena el día de la tarea', () => {
+    const other = '2026-11-13'
+    let note = noteOf('a', 'b')
+    note = addTask(note, other, 'x', { id: 'x', now: at(8) })
+    note = addTask(note, other, 'y', { id: 'y', now: at(9) })
+    const moved = moveTask(note, 'a', 1)
+    expect(ids(moved)).toEqual(['b', 'a'])
+    expect(tasksOf(moved, other)).toBe(tasksOf(note, other))
+  })
+
+  it('cambiar la hora o marcar hecha no mueve la tarea', () => {
+    const note = noteOf('a', 'b', 'c')
+    expect(ids(setTaskHour(note, 'c', 0))).toEqual(['a', 'b', 'c'])
+    expect(ids(toggleTask(note, 'a'))).toEqual(['a', 'b', 'c'])
+  })
+})
 
 describe('addTask', () => {
   it('agrega al final con la hora del reloj inyectado', () => {

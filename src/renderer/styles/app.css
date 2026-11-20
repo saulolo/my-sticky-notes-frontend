@@ -332,6 +332,28 @@ body {
   border-radius: 3px;
 }
 
+/* ---------- Arrastrar tareas (SPEC 08) ---------- */
+/* La fila levantada sigue al puntero; su hueco en la lista marca dónde caerá. */
+.scroll.is-dragging {
+  cursor: grabbing;
+  user-select: none;
+}
+.scroll.is-dragging .row {
+  transition: none;
+}
+.scroll.is-dragging .task:not(.is-dragging) .row:hover {
+  background: transparent;
+}
+.task.is-dragging {
+  position: relative;
+  z-index: 2;
+  border-radius: 10px;
+  background: var(--bg-note);
+  box-shadow:
+    0 8px 22px rgba(0, 0, 0, 0.5),
+    0 0 0 1px var(--accent);
+}
+
 /* ---------- Traer tareas de ayer (SPEC 07) ---------- */
 .carry-over {
   display: flex;

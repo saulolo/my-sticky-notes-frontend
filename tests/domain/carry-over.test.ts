@@ -107,6 +107,14 @@ describe('carryOver', () => {
     expect(progress(copies)).toEqual({ done: 0, total: 4, percent: 0 })
   })
 
+  it('copia en el orden manual del día de origen, no por hora (SPEC 08)', () => {
+    const at = (id: string, hour: number): Task => ({ ...task(id), hour })
+    const n = note({ [YESTERDAY]: [at('a', 15), at('b', 8), at('c', 12)] })
+    const copies = tasksOf(carryOver(n, TODAY, counter()), TODAY)
+    expect(copies.map((t) => t.text)).toEqual(['texto a', 'texto b', 'texto c'])
+    expect(copies.map((t) => t.hour)).toEqual([15, 8, 12])
+  })
+
   it('los ids son únicos en toda la nota', () => {
     const after = carryOver(source(), TODAY, counter())
     const all = Object.values(after.days).flatMap((ts) =>

@@ -8,7 +8,7 @@ import { NoteStore } from '../core/application/note-store'
 import { shortDateLabel } from '../core/domain/date-label'
 import { addDays, dayDate, dayKey, dayLabel, pastDays, type DayKey } from '../core/domain/day'
 import type { Note } from '../core/domain/note'
-import { progress, tasksByHour, tasksOf } from '../core/domain/note-operations'
+import { progress, tasksOf } from '../core/domain/note-operations'
 import { IpcNoteRepository } from './infrastructure/ipc-note-repository'
 import { createAbout } from './ui/about'
 import { createCarryOver } from './ui/carry-over'
@@ -131,7 +131,8 @@ const taskList = createTaskList({
   onEditTask: (taskId, text) => store.editTask(taskId, text),
   onEditSubtask: (taskId, subtaskId, text) => store.editSubtask(taskId, subtaskId, text),
   onDeleteTask: (taskId) => store.deleteTask(taskId),
-  onDeleteSubtask: (taskId, subtaskId) => store.deleteSubtask(taskId, subtaskId)
+  onDeleteSubtask: (taskId, subtaskId) => store.deleteSubtask(taskId, subtaskId),
+  onMoveTask: (taskId, toIndex) => store.moveTask(taskId, toIndex)
 })
 
 // "Traer tareas de ayer" (SPEC 07): vive dentro de la lista, tras la fila de nueva tarea.
@@ -162,7 +163,7 @@ function render(current: Note): void {
   header.setDays(addDays(todayKey, -1), todayKey, addDays(todayKey, 1), activeDay)
   header.setDate(shortDateLabel(dayDate(activeDay)))
   const tasks = tasksOf(current, activeDay)
-  taskList.render(tasksByHour(tasks))
+  taskList.render(tasks)
   const { done, total, percent } = progress(tasks)
   progressView.update(done, total, percent)
   // Solo en Hoy, con Hoy vacío, sin uso previo hoy y con un día de origen.
