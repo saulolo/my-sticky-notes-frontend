@@ -133,7 +133,10 @@ const taskList = createTaskList({
   onEditSubtask: (taskId, subtaskId, text) => store.editSubtask(taskId, subtaskId, text),
   onDeleteTask: (taskId) => store.deleteTask(taskId),
   onDeleteSubtask: (taskId, subtaskId) => store.deleteSubtask(taskId, subtaskId),
-  onMoveTask: (taskId, toIndex) => store.moveTask(taskId, toIndex)
+  onMoveTask: (taskId, toIndex) => store.moveTask(taskId, toIndex),
+  onMoveSubtask: (taskId, subtaskId, toIndex) => store.moveSubtask(taskId, subtaskId, toIndex),
+  onMoveSubtaskToTask: (fromTaskId, subtaskId, toTaskId, toIndex) =>
+    store.moveSubtaskToTask(fromTaskId, subtaskId, toTaskId, toIndex)
 })
 
 // "Traer tareas de ayer" (SPEC 07): vive dentro de la lista, tras la fila de nueva tarea.

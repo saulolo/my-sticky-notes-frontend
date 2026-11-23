@@ -92,6 +92,45 @@ describe('NoteStore', () => {
     expect(listener).toHaveBeenCalledTimes(1)
   })
 
+  it('moveSubtask reordena, avisa a los suscriptores y devuelve false si no cambia', () => {
+    const { store } = setup()
+    store.addTask(D, 'a')
+    store.addSubtask('id1', 'x')
+    store.addSubtask('id1', 'y')
+    store.addSubtask('id1', 'z')
+    const listener = vi.fn()
+    store.subscribe(listener)
+
+    expect(store.moveSubtask('id1', 'id2', 2)).toBe(true)
+    expect(tasksOf(store.getNote(), D)[0].subtasks.map((s) => s.id)).toEqual(['id3', 'id4', 'id2'])
+    expect(listener).toHaveBeenCalledTimes(1)
+
+    expect(store.moveSubtask('id1', 'id2', 2)).toBe(false)
+    expect(store.moveSubtask('nope', 'id2', 0)).toBe(false)
+    expect(store.moveSubtask('id1', 'nope', 0)).toBe(false)
+    expect(store.moveSubtask('id1', 'id2', 1.5)).toBe(false)
+    expect(listener).toHaveBeenCalledTimes(1)
+  })
+
+  it('moveSubtaskToTask pasa la subtarea a otra tarea y devuelve false si no aplica', () => {
+    const { store } = setup()
+    store.addTask(D, 'a')
+    store.addTask(D, 'b')
+    store.addSubtask('id1', 'x')
+    const listener = vi.fn()
+    store.subscribe(listener)
+
+    expect(store.moveSubtaskToTask('id1', 'id3', 'id2', 0)).toBe(true)
+    const [a, b] = tasksOf(store.getNote(), D)
+    expect(a.subtasks).toEqual([])
+    expect(b.subtasks.map((s) => s.id)).toEqual(['id3'])
+    expect(listener).toHaveBeenCalledTimes(1)
+
+    expect(store.moveSubtaskToTask('id2', 'id3', 'id2', 0)).toBe(false)
+    expect(store.moveSubtaskToTask('id1', 'id3', 'id2', 0)).toBe(false)
+    expect(listener).toHaveBeenCalledTimes(1)
+  })
+
   it('texto vacío devuelve false y no avisa a los suscriptores', () => {
     const { store } = setup()
     const listener = vi.fn()

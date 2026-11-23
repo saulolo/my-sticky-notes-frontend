@@ -7,6 +7,8 @@ import {
   deleteTask,
   editSubtask,
   editTask,
+  moveSubtask,
+  moveSubtaskToTask,
   moveTask,
   progress,
   setAllDone,
@@ -134,6 +136,160 @@ describe('moveTask', () => {
     const note = noteOf('a', 'b', 'c')
     expect(ids(setTaskHour(note, 'c', 0))).toEqual(['a', 'b', 'c'])
     expect(ids(toggleTask(note, 'a'))).toEqual(['a', 'b', 'c'])
+  })
+})
+
+describe('moveSubtask', () => {
+  const noteOf = (...subs: string[]): Note => {
+    let note = addTask(createEmptyNote(), D, 'T', { id: 't1', now: at(8) })
+    note = addTask(note, D, 'U', { id: 't2', now: at(9) })
+    note = addSubtask(note, 't2', 'otra', 'z1')
+    return subs.reduce((n, id) => addSubtask(n, 't1', id, id), note)
+  }
+  const ids = (note: Note, taskId = 't1'): string[] =>
+    T(note)
+      .find((t) => t.id === taskId)!
+      .subtasks.map((s) => s.id)
+
+  it('mueve hacia abajo y hacia arriba', () => {
+    const note = noteOf('a', 'b', 'c', 'd')
+    expect(ids(moveSubtask(note, 't1', 'a', 2))).toEqual(['b', 'c', 'a', 'd'])
+    expect(ids(moveSubtask(note, 't1', 'd', 1))).toEqual(['a', 'd', 'b', 'c'])
+  })
+
+  it('mueve al principio y al final', () => {
+    const note = noteOf('a', 'b', 'c')
+    expect(ids(moveSubtask(note, 't1', 'c', 0))).toEqual(['c', 'a', 'b'])
+    expect(ids(moveSubtask(note, 't1', 'a', 2))).toEqual(['b', 'c', 'a'])
+  })
+
+  it('limita toIndex a [0, n − 1]', () => {
+    const note = noteOf('a', 'b', 'c')
+    expect(ids(moveSubtask(note, 't1', 'b', 99))).toEqual(['a', 'c', 'b'])
+    expect(ids(moveSubtask(note, 't1', 'b', -5))).toEqual(['b', 'a', 'c'])
+  })
+
+  it('devuelve el mismo Note si ya está en esa posición', () => {
+    const note = noteOf('a', 'b', 'c')
+    expect(moveSubtask(note, 't1', 'b', 1)).toBe(note)
+    expect(moveSubtask(note, 't1', 'c', 99)).toBe(note)
+    expect(moveSubtask(note, 't1', 'a', -1)).toBe(note)
+  })
+
+  it('devuelve el mismo Note con ids inexistentes, toIndex no entero o una sola subtarea', () => {
+    const note = noteOf('a', 'b')
+    expect(moveSubtask(note, 'nope', 'a', 0)).toBe(note)
+    expect(moveSubtask(note, 't1', 'nope', 0)).toBe(note)
+    expect(moveSubtask(note, 't1', 'a', 0.5)).toBe(note)
+    expect(moveSubtask(note, 't1', 'a', NaN)).toBe(note)
+    expect(moveSubtask(note, 't2', 'a', 0)).toBe(note)
+    const single = noteOf('a')
+    expect(moveSubtask(single, 't1', 'a', 3)).toBe(single)
+  })
+
+  it('no muta la nota original ni toca otras tareas, días ni el estado', () => {
+    let note = noteOf('a', 'b', 'c')
+    note = addTask(note, '2026-11-13', 'x', { id: 'x', now: at(8) })
+    note = toggleSubtask(note, 't1', 'a')
+    const before = JSON.stringify(note)
+    const moved = moveSubtask(note, 't1', 'a', 2)
+    expect(JSON.stringify(note)).toBe(before)
+    expect(ids(moved)).toEqual(['b', 'c', 'a'])
+    expect(T(moved).map((t) => t.id)).toEqual(['t1', 't2'])
+    expect(T(moved)[1]).toBe(T(note)[1])
+    expect(tasksOf(moved, '2026-11-13')).toBe(tasksOf(note, '2026-11-13'))
+    expect(T(moved)[0].subtasks.find((s) => s.id === 'a')!.done).toBe(true)
+    expect(prog(moved)).toEqual(prog(note))
+  })
+
+  it('marcar o editar una subtarea no la mueve', () => {
+    const note = noteOf('a', 'b', 'c')
+    expect(ids(toggleSubtask(note, 't1', 'a'))).toEqual(['a', 'b', 'c'])
+    expect(ids(editSubtask(note, 't1', 'a', 'nuevo'))).toEqual(['a', 'b', 'c'])
+  })
+})
+
+describe('moveSubtaskToTask', () => {
+  // t1: a, b, c · t2: x, y · t3: sin subtareas · t4 (otro día): z
+  const build = (): Note => {
+    let note = createEmptyNote()
+    for (const [i, id] of ['t1', 't2', 't3'].entries()) {
+      note = addTask(note, D, id, { id, now: at(8 + i) })
+    }
+    note = addTask(note, '2026-11-13', 't4', { id: 't4', now: at(8) })
+    for (const s of ['a', 'b', 'c']) note = addSubtask(note, 't1', s, s)
+    for (const s of ['x', 'y']) note = addSubtask(note, 't2', s, s)
+    note = addSubtask(note, 't4', 'z', 'z')
+    return note
+  }
+  const subs = (note: Note, id: string): string[] =>
+    T(note)
+      .find((t) => t.id === id)!
+      .subtasks.map((s) => s.id)
+
+  it('inserta al principio, en medio y al final del destino', () => {
+    const note = build()
+    expect(subs(moveSubtaskToTask(note, 't1', 'a', 't2', 0), 't2')).toEqual(['a', 'x', 'y'])
+    expect(subs(moveSubtaskToTask(note, 't1', 'a', 't2', 1), 't2')).toEqual(['x', 'a', 'y'])
+    expect(subs(moveSubtaskToTask(note, 't1', 'a', 't2', 2), 't2')).toEqual(['x', 'y', 'a'])
+    expect(subs(moveSubtaskToTask(note, 't1', 'b', 't2', 1), 't1')).toEqual(['a', 'c'])
+  })
+
+  it('limita toIndex a [0, n]', () => {
+    const note = build()
+    expect(subs(moveSubtaskToTask(note, 't1', 'a', 't2', 99), 't2')).toEqual(['x', 'y', 'a'])
+    expect(subs(moveSubtaskToTask(note, 't1', 'a', 't2', -5), 't2')).toEqual(['a', 'x', 'y'])
+  })
+
+  it('una tarea sin subtareas recibe la subtarea', () => {
+    const moved = moveSubtaskToTask(build(), 't1', 'c', 't3', 0)
+    expect(subs(moved, 't3')).toEqual(['c'])
+  })
+
+  it('expande el destino', () => {
+    let note = toggleSubtasksCollapsed(build(), 't2')
+    expect(T(note).find((t) => t.id === 't2')!.collapsed).toBe(true)
+    note = moveSubtaskToTask(note, 't1', 'a', 't2', 0)
+    expect(T(note).find((t) => t.id === 't2')!.collapsed).toBeFalsy()
+  })
+
+  it('conserva texto y done; el progreso total no cambia', () => {
+    const note = toggleSubtask(build(), 't1', 'a')
+    const moved = moveSubtaskToTask(note, 't1', 'a', 't2', 0)
+    expect(T(moved).find((t) => t.id === 't2')!.subtasks[0]).toEqual({
+      id: 'a',
+      text: 'a',
+      done: true
+    })
+    expect(prog(moved)).toEqual(prog(note))
+  })
+
+  it('la tarea origen puede quedarse sin subtareas', () => {
+    const first = moveSubtaskToTask(build(), 't2', 'x', 't3', 0)
+    const alone = moveSubtaskToTask(first, 't2', 'y', 't3', 1)
+    expect(subs(alone, 't2')).toEqual([])
+    expect(subs(alone, 't3')).toEqual(['x', 'y'])
+  })
+
+  it('devuelve el mismo Note con misma tarea, otro día, ids inexistentes o toIndex no entero', () => {
+    const note = build()
+    expect(moveSubtaskToTask(note, 't1', 'a', 't1', 0)).toBe(note)
+    expect(moveSubtaskToTask(note, 't1', 'a', 't4', 0)).toBe(note)
+    expect(moveSubtaskToTask(note, 't4', 'z', 't1', 0)).toBe(note)
+    expect(moveSubtaskToTask(note, 'nope', 'a', 't2', 0)).toBe(note)
+    expect(moveSubtaskToTask(note, 't1', 'nope', 't2', 0)).toBe(note)
+    expect(moveSubtaskToTask(note, 't1', 'x', 't2', 0)).toBe(note)
+    expect(moveSubtaskToTask(note, 't1', 'a', 'nope', 0)).toBe(note)
+    expect(moveSubtaskToTask(note, 't1', 'a', 't2', 0.5)).toBe(note)
+  })
+
+  it('no muta la nota original ni toca otras tareas o días', () => {
+    const note = build()
+    const before = JSON.stringify(note)
+    const moved = moveSubtaskToTask(note, 't1', 'a', 't2', 1)
+    expect(JSON.stringify(note)).toBe(before)
+    expect(T(moved)[2]).toBe(T(note)[2])
+    expect(tasksOf(moved, '2026-11-13')).toBe(tasksOf(note, '2026-11-13'))
   })
 })
 

@@ -24,6 +24,15 @@ export interface TaskListHandlers {
   onDeleteSubtask(taskId: string, subtaskId: string): void
   /** Orden manual (SPEC 08): `toIndex` es la posición final dentro de la lista del día. */
   onMoveTask(taskId: string, toIndex: number): void
+  /** Orden manual de subtareas (SPEC 10): `toIndex` es la posición final dentro de la tarea. */
+  onMoveSubtask(taskId: string, subtaskId: string, toIndex: number): void
+  /** Subtarea a otra tarea del mismo día (SPEC 10): `toIndex` es la posición en el destino. */
+  onMoveSubtaskToTask(
+    fromTaskId: string,
+    subtaskId: string,
+    toTaskId: string,
+    toIndex: number
+  ): void
 }
 
 /** Desplazamiento mínimo del puntero (px) para que un clic sostenido pase a ser arrastre. */
@@ -36,7 +45,14 @@ const MAX_SCROLL_STEP = 14
 /** Arrastre en curso. Hasta superar el umbral solo es una pulsación (`active = false`). */
 interface DragState {
   taskId: string
+  /** Subtarea arrastrada (SPEC 10); `null` si se arrastra una tarea entera. */
+  subtaskId: string | null
   node: HTMLElement
+  /**
+   * Padre de las filas que se reordenan: la lista (tareas) o el `.subtasks` de la tarea. Con una
+   * subtarea cambia al pasar sobre otra tarea.
+   */
+  container: HTMLElement
   pointerId: number
   downX: number
   downY: number
@@ -308,7 +324,9 @@ export function createTaskList(handlers: TaskListHandlers): TaskListView {
       // Con un arrastre activo no se toca el DOM (destruiría la fila arrastrada); se
       // difiere. Si la tarea arrastrada desapareció, se cancela el arrastre.
       lastTasks = tasks
-      if (tasks.some((t) => t.id === drag?.taskId)) {
+      const { taskId, subtaskId } = drag
+      const task = tasks.find((t) => t.id === taskId)
+      if (task && (subtaskId === null || task.subtasks.some((s) => s.id === subtaskId))) {
         drag.staleList = true
         return
       }
@@ -359,25 +377,48 @@ export function createTaskList(handlers: TaskListHandlers): TaskListView {
   let drag: DragState | null = null
   let suppressClick = false
 
-  function taskNodes(): HTMLElement[] {
-    return [...element.children].filter(
-      (child): child is HTMLElement =>
-        child instanceof HTMLElement && child.classList.contains('task')
+  /** Filas hermanas del arrastre: tareas de la lista o subtareas de su tarea. */
+  function dragItems(container: HTMLElement, isSub: boolean): HTMLElement[] {
+    const cls = isSub ? 'sub-row' : 'task'
+    return [...container.children].filter(
+      (child): child is HTMLElement => child instanceof HTMLElement && child.classList.contains(cls)
     )
   }
 
   function onPress(event: PointerEvent): void {
-    if (drag || event.button !== 0 || !event.isPrimary || lastTasks.length < 2) return
+    if (drag || event.button !== 0 || !event.isPrimary) return
     const target = event.target as HTMLElement
     // Check, botones e inputs de edición no inician arrastre.
     if (target.closest('button, input, textarea')) return
-    const node = target.closest<HTMLElement>('.task-row')?.parentElement
-    const taskId = node?.dataset.taskId
-    if (!node || !taskId || node.parentElement !== element) return
+
+    // Una pulsación en una subtarea mueve la subtarea (SPEC 10); en la fila de la tarea, la tarea.
+    let node: HTMLElement | null | undefined
+    let taskId: string | undefined
+    let subtaskId: string | null = null
+    let container: HTMLElement | null | undefined
+    const subRow = target.closest<HTMLElement>('.sub-row')
+    if (subRow) {
+      node = subRow
+      container = subRow.parentElement
+      taskId = container?.parentElement?.dataset.taskId
+      subtaskId = subRow.dataset.subtaskId ?? null
+      const task = lastTasks.find((t) => t.id === taskId)
+      // Con una sola subtarea solo hay a dónde ir si el día tiene otra tarea.
+      if (!subtaskId || !task || (task.subtasks.length < 2 && lastTasks.length < 2)) return
+    } else {
+      if (lastTasks.length < 2) return
+      node = target.closest<HTMLElement>('.task-row')?.parentElement
+      taskId = node?.dataset.taskId
+      container = element
+      if (node?.parentElement !== element) return
+    }
+    if (!node || !taskId || !container) return
 
     drag = {
       taskId,
+      subtaskId,
       node,
+      container,
       pointerId: event.pointerId,
       downX: event.clientX,
       downY: event.clientY,
@@ -447,28 +488,61 @@ export function createTaskList(handlers: TaskListHandlers): TaskListView {
     if (!drag?.active) return
     const { node } = drag
     node.style.transform = ''
+    const isSub = drag.subtaskId !== null
     const list = element.getBoundingClientRect()
     const height = node.getBoundingClientRect().height
     // Siempre dentro de la parte visible de la lista.
+    let limitTop = list.top
+    let limitBottom = list.bottom
+    if (isSub) {
+      // La tarea bajo el puntero es el destino: si no es la actual, la subtarea cambia de grupo.
+      const wanted = Math.min(
+        Math.max(drag.clientY - drag.grabOffset, list.top),
+        Math.max(list.top, list.bottom - height)
+      )
+      const target = taskAt(wanted + height / 2)
+      if (target) {
+        const container = subtasksOf(target)
+        if (container !== drag.container) {
+          const old = drag.container
+          container.append(node)
+          drag.container = container
+          if (old.childElementCount === 0) old.remove()
+        }
+      }
+      // Dentro de su grupo la fila no sale por arriba ni por abajo.
+      const group = dragItems(drag.container, true)
+      limitTop = group[0].getBoundingClientRect().top
+      limitBottom = group[group.length - 1].getBoundingClientRect().bottom
+    }
+    const items = dragItems(drag.container, isSub)
     const top = Math.min(
-      Math.max(drag.clientY - drag.grabOffset, list.top),
-      Math.max(list.top, list.bottom - height)
+      Math.max(drag.clientY - drag.grabOffset, limitTop),
+      Math.max(limitTop, limitBottom - height)
     )
     const center = top + height / 2
 
     // Posición del hueco: cuántas de las otras filas quedan por encima del centro. Se mide
     // con las coordenadas actuales de cada fila, no con medidas guardadas.
-    const siblings = taskNodes().filter((n) => n !== node)
-    const index = siblings.filter((n) => {
+    const siblings = items.filter((n) => n !== node)
+    let index = siblings.filter((n) => {
       const rect = n.getBoundingClientRect()
       return rect.top + rect.height / 2 < center
     }).length
+    if (isSub) {
+      // La fila ya no puede bajar más de los límites del grupo: en los extremos el hueco es la
+      // primera o la última posición (el centro nunca superaría del todo a la última hermana).
+      const wanted = drag.clientY - drag.grabOffset
+      if (wanted <= limitTop) index = 0
+      else if (wanted + height >= limitBottom) index = siblings.length
+    }
 
-    if (index !== taskNodes().indexOf(node)) {
+    if (index !== items.indexOf(node)) {
       const before = siblings.map((n) => n.getBoundingClientRect().top)
       const ref = siblings[index]
-      if (ref) element.insertBefore(node, ref)
-      else siblings[siblings.length - 1].after(node)
+      if (ref) drag.container.insertBefore(node, ref)
+      else if (siblings.length > 0) siblings[siblings.length - 1].after(node)
+      else drag.container.prepend(node)
       // Las demás filas se deslizan desde donde estaban hasta su sitio nuevo.
       const moved: HTMLElement[] = []
       siblings.forEach((n, i) => {
@@ -489,6 +563,31 @@ export function createTaskList(handlers: TaskListHandlers): TaskListView {
 
     const natural = node.getBoundingClientRect().top
     node.style.transform = `translateY(${top - natural}px)`
+  }
+
+  /** Tarea (nodo `.task`) más cercana a la altura `y`; la que la contiene si hay una. */
+  function taskAt(y: number): HTMLElement | null {
+    let best: HTMLElement | null = null
+    let bestDistance = Infinity
+    for (const task of dragItems(element, false)) {
+      const rect = task.getBoundingClientRect()
+      const distance = y < rect.top ? rect.top - y : y > rect.bottom ? y - rect.bottom : 0
+      if (distance < bestDistance) {
+        best = task
+        bestDistance = distance
+      }
+    }
+    return best
+  }
+
+  /** Grupo `.subtasks` de una tarea; si no está en pantalla (sin subtareas o contraída) se crea. */
+  function subtasksOf(task: HTMLElement): HTMLElement {
+    let block = task.querySelector<HTMLElement>(':scope > .subtasks')
+    if (!block) {
+      block = el(`<div class="subtasks"></div>`)
+      task.append(block)
+    }
+    return block
   }
 
   /** Mientras se arrastra cerca del borde de la lista, la desplaza sola. */
@@ -522,7 +621,8 @@ export function createTaskList(handlers: TaskListHandlers): TaskListView {
     if (state.raf !== null) cancelAnimationFrame(state.raf)
     if (!state.active) return // Solo fue un clic: sigue su curso normal.
 
-    const toIndex = taskNodes().indexOf(state.node)
+    const isSub = state.subtaskId !== null
+    const toIndex = dragItems(state.container, isSub).indexOf(state.node)
     // El clic que sigue a soltar no debe marcar ni editar nada.
     suppressClick = true
     setTimeout(() => {
@@ -534,15 +634,30 @@ export function createTaskList(handlers: TaskListHandlers): TaskListView {
       // Ya liberada.
     }
     element.classList.remove('is-dragging')
-    for (const node of taskNodes()) {
+    for (const node of dragItems(state.container, isSub)) {
       node.classList.remove('is-dragging')
       node.style.transform = ''
       node.style.transition = ''
     }
 
-    const from = lastTasks.findIndex((t) => t.id === state.taskId)
-    if (commit && !state.staleList && from !== -1 && toIndex !== from) {
-      handlers.onMoveTask(state.taskId, toIndex)
+    const task = lastTasks.find((t) => t.id === state.taskId)
+    if (isSub) {
+      // El DOM interno de las tareas quedó reordenado: se descarta para reconstruirlo desde el modelo.
+      rowCache.clear()
+      const toTaskId = state.container.parentElement?.dataset.taskId
+      const from = task?.subtasks.findIndex((s) => s.id === state.subtaskId) ?? -1
+      if (commit && !state.staleList && from !== -1 && toTaskId) {
+        if (toTaskId !== state.taskId) {
+          handlers.onMoveSubtaskToTask(state.taskId, state.subtaskId!, toTaskId, toIndex)
+        } else if (toIndex !== from) {
+          handlers.onMoveSubtask(state.taskId, state.subtaskId!, toIndex)
+        }
+      }
+    } else {
+      const from = lastTasks.findIndex((t) => t.id === state.taskId)
+      if (commit && !state.staleList && from !== -1 && toIndex !== from) {
+        handlers.onMoveTask(state.taskId, toIndex)
+      }
     }
     // Sin cambio de orden (o cancelado) esto devuelve las filas a la posición del modelo.
     render(lastTasks)

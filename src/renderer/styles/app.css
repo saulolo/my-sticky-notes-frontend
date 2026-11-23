@@ -383,6 +383,21 @@ body {
     0 0 0 1px var(--accent);
 }
 
+/* Subtarea levantada (SPEC 10): mismo aspecto que la tarea, dentro de su grupo. */
+.scroll.is-dragging .sub-row:not(.is-dragging):hover {
+  background: transparent;
+  box-shadow: none;
+}
+.sub-row.is-dragging {
+  position: relative;
+  z-index: 2;
+  border-radius: 8px;
+  background: var(--bg-note);
+  box-shadow:
+    0 6px 16px rgba(0, 0, 0, 0.5),
+    0 0 0 1px var(--accent);
+}
+
 /* ---------- Traer tareas de ayer (SPEC 07) ---------- */
 .carry-over {
   display: flex;
