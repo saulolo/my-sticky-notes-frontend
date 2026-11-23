@@ -55,7 +55,7 @@ Cada día empieza limpio, con un clic traes las tareas de ayer y todo se guarda 
 |---|---|
 | **Una lista por día** | Pestañas **Ayer**, **Hoy** y **Mañana**, más un historial con los 5 días anteriores. Todos se pueden editar. |
 | **Hoy empieza limpio** | Nada se mueve solo: cada día conserva sus tareas, hechas o no. Si Hoy está vacío, el botón **Traer tareas de ayer** copia (sin marcar) la lista del último día con tareas. Se usa una vez al día. |
-| **Orden manual** | Cada tarea lleva su hora (0–23) como etiqueta y tú decides el orden arrastrándolas. Una capa de subtareas, contraíble. |
+| **Orden manual** | Cada tarea lleva su hora (0–23) como etiqueta y tú decides el orden arrastrándolas. Una capa de subtareas, contraíble, que también reordenas o pasas a otra tarea. |
 | **Progreso de un vistazo** | Anillo, `N de M hechas` y barra, contando tareas y subtareas. Un botón **marca o desmarca todas** las del día. |
 | **Fijar = anclar** | La nota se pega al borde derecho de la pantalla, a todo el alto, y se abre sola al iniciar Windows. |
 | **Siempre encima** | Si quieres, la nota queda delante de las demás ventanas, libre o anclada. |
@@ -123,6 +123,7 @@ La cabecera tiene dos filas. Arrastra la fila de arriba para mover la nota.
 - **Doble clic** en el texto o la hora para editarlos. Cambiar la hora no mueve la tarea.
 - **Arrastra** una tarea (clic sostenido en la fila, fuera de la casilla y los botones) para ponerla donde quieras. Las nuevas se añaden al final. Funciona en Ayer, Hoy, Mañana y el historial.
 - Una sola capa de **subtareas**, con borde a la izquierda. Un contador `hechas/total` (por ejemplo `1/3`; en color de acento cuando están todas hechas) y un botón con chevron al pasar el mouse las contraen o expanden. También un **clic** en la fila de la tarea (el doble clic sigue editando).
+- **Arrastra** una subtarea (clic sostenido en su fila, fuera de la casilla y la papelera) para reordenarla entre sus hermanas, o suéltala sobre **otra tarea del mismo día** para pasársela (queda como su última subtarea si no tenía o estaba contraída, y conserva su estado). **Esc** cancela.
 - Marcar una tarea **no** marca sus subtareas.
 - Las hechas se ven tachadas y atenuadas.
 
@@ -190,6 +191,7 @@ Al abrir, la pestaña activa siempre es **Hoy**. Con la app abierta a medianoche
 | Descartar la tarea a medio escribir | **Esc** o clic fuera de la fila |
 | Editar texto u hora | **Doble clic** |
 | Reordenar tareas | **Mantén presionada** la fila de la tarea y arrástrala arriba o abajo (**Esc** cancela). Sus subtareas viajan con ella |
+| Reordenar subtareas | **Mantén presionada** la fila de la subtarea y arrástrala arriba o abajo; si la sueltas sobre otra tarea del mismo día, pasa a esa tarea (**Esc** cancela) |
 | Cambiar el alto | Arrastra el **borde superior o inferior** de la nota (mín. 300 px, máx. el alto útil del monitor) |
 | Mover la nota | Arrastra la **fila de arriba** de la cabecera (libre, no anclada) |
 | Volver de la barra de tareas | Clic en el icono o **Alt+Tab** |
@@ -302,14 +304,14 @@ Capas con dependencia en un solo sentido: `core` no conoce Electron ni el DOM.
 ```
 src/
   core/        dominio + aplicación puros (sin electron ni DOM)
-    domain/      Note (días), Task, operaciones inmutables, rotación de día, orden manual (`moveTask`), validación y migración, días y etiquetas de fecha
+    domain/      Note (días), Task, operaciones inmutables, rotación de día, orden manual (`moveTask`, `moveSubtask`, `moveSubtaskToTask`), validación y migración, días y etiquetas de fecha
     application/ NoteStore (estado, autoguardado, rotación), puertos (Clock, NoteRepository)
   main/        proceso principal: ventana (alto, anclaje), carpeta de datos, instancia única,
                inicio automático, enlaces externos permitidos, IPC, JsonNoteRepository
   preload/     puente seguro: expone window.stickyApi
   renderer/    UI en TypeScript vanilla (ui/, styles/, infrastructure/)
 tests/         domain, application, main (lógica de ventana, carpetas y autoarranque sin Electron)
-specs/         especificaciones (01 nota de escritorio … 08 orden manual de tareas)
+specs/         especificaciones (01 nota de escritorio … 08 orden manual de tareas … 10 orden manual de subtareas)
 build/         recursos del instalador: icono, logo del autor, cabecera, installer.nsh
 scripts/       make-installer-art.mjs (npm run art)
 docs/          mockup de referencia (references/) e imágenes del README (img/)

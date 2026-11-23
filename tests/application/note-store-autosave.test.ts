@@ -85,6 +85,24 @@ describe('NoteStore autoguardado', () => {
     expect(tasksOf(save.mock.calls[0][0], D).map((t) => t.id)).toEqual(['id2', 'id1'])
   })
 
+  it('moveSubtask programa el guardado solo si cambia el orden', async () => {
+    const { store, save } = setup()
+    store.addTask(D, 'a')
+    store.addSubtask('id1', 'x')
+    store.addSubtask('id1', 'y')
+    await vi.advanceTimersByTimeAsync(300)
+    save.mockClear()
+
+    expect(store.moveSubtask('id1', 'id2', 0)).toBe(false)
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(save).not.toHaveBeenCalled()
+
+    expect(store.moveSubtask('id1', 'id2', 1)).toBe(true)
+    await vi.advanceTimersByTimeAsync(300)
+    expect(save).toHaveBeenCalledTimes(1)
+    expect(tasksOf(save.mock.calls[0][0], D)[0].subtasks.map((s) => s.id)).toEqual(['id3', 'id2'])
+  })
+
   it('cargar la nota no dispara un guardado', async () => {
     const { store, save } = setup()
     await store.load()

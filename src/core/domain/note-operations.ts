@@ -177,6 +177,61 @@ export function moveTask(note: Note, taskId: string, toIndex: number): Note {
 }
 
 /**
+ * Mueve la subtarea dentro de `task.subtasks` a la posición final `toIndex` (0 = primera).
+ * `toIndex` se limita a `[0, n − 1]`. Devuelve el mismo `Note` si la tarea o la subtarea no
+ * existen, `toIndex` no es un entero o la subtarea ya está en esa posición.
+ */
+export function moveSubtask(note: Note, taskId: string, subtaskId: string, toIndex: number): Note {
+  if (!Number.isInteger(toIndex)) return note
+  return mapTask(note, taskId, (task) => {
+    const from = task.subtasks.findIndex((s) => s.id === subtaskId)
+    if (from === -1) return task
+    const to = Math.min(Math.max(toIndex, 0), task.subtasks.length - 1)
+    if (from === to) return task
+    const next = [...task.subtasks]
+    const [sub] = next.splice(from, 1)
+    next.splice(to, 0, sub)
+    return { ...task, subtasks: next }
+  })
+}
+
+/**
+ * Pasa la subtarea de `fromTaskId` a `toTaskId` (mismo día) en la posición `toIndex` (limitada a
+ * `[0, n]`, con n = subtareas del destino). Conserva id, texto y `done`; el destino queda
+ * expandido. Mismo `Note` si algo no existe, `toIndex` no es entero, es la misma tarea
+ * (para eso está `moveSubtask`) o las tareas están en días distintos.
+ */
+export function moveSubtaskToTask(
+  note: Note,
+  fromTaskId: string,
+  subtaskId: string,
+  toTaskId: string,
+  toIndex: number
+): Note {
+  if (!Number.isInteger(toIndex) || fromTaskId === toTaskId) return note
+  const day = findDay(note, fromTaskId)
+  if (day === undefined || findDay(note, toTaskId) !== day) return note
+  const tasks = note.days[day]
+  const from = tasks.find((t) => t.id === fromTaskId)!
+  const sub = from.subtasks.find((s) => s.id === subtaskId)
+  if (!sub) return note
+  return withDay(
+    note,
+    day,
+    tasks.map((t) => {
+      if (t.id === fromTaskId) {
+        return { ...t, subtasks: t.subtasks.filter((s) => s.id !== subtaskId) }
+      }
+      if (t.id !== toTaskId) return t
+      const at = Math.min(Math.max(toIndex, 0), t.subtasks.length)
+      const subtasks = [...t.subtasks]
+      subtasks.splice(at, 0, sub)
+      return { ...t, subtasks, ...(t.collapsed ? { collapsed: false } : {}) }
+    })
+  )
+}
+
+/**
  * Copia de las tareas ordenada por hora ascendente; a igual hora, por `createdAt`
  * y luego por orden de inserción (el sort es estable). No muta la lista original.
  * Desde la SPEC 08 solo la usa la migración v1/v2 → v3; la lista se muestra en orden manual.

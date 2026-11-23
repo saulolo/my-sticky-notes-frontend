@@ -105,6 +105,19 @@ export class NoteStore {
     return this.change((n) => ops.moveTask(n, taskId, toIndex))
   }
 
+  moveSubtaskToTask(
+    fromTaskId: string,
+    subtaskId: string,
+    toTaskId: string,
+    toIndex: number
+  ): boolean {
+    return this.change((n) => ops.moveSubtaskToTask(n, fromTaskId, subtaskId, toTaskId, toIndex))
+  }
+
+  moveSubtask(taskId: string, subtaskId: string, toIndex: number): boolean {
+    return this.change((n) => ops.moveSubtask(n, taskId, subtaskId, toIndex))
+  }
+
   addSubtask(taskId: string, text: string): boolean {
     return this.change((n) => ops.addSubtask(n, taskId, text, this.deps.newId()))
   }
