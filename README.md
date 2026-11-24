@@ -57,6 +57,7 @@ Cada día empieza limpio, con un clic traes las tareas de ayer y todo se guarda 
 | **Hoy empieza limpio** | Nada se mueve solo: cada día conserva sus tareas, hechas o no. Si Hoy está vacío, el botón **Traer tareas de ayer** copia (sin marcar) la lista del último día con tareas. Se usa una vez al día. |
 | **Orden manual** | Cada tarea lleva su hora (0–23) como etiqueta y tú decides el orden arrastrándolas. Una capa de subtareas, contraíble, que también reordenas o pasas a otra tarea. |
 | **Progreso de un vistazo** | Anillo, `N de M hechas` y barra, contando tareas y subtareas. Un botón **marca o desmarca todas** las del día. |
+| **Aviso por hora** | Un interruptor (campana) en el bloque de progreso: a cada hora en punto, si hoy tienes una tarea pendiente con esa hora, suena tu mp3 y aparece una notificación de Windows. Empieza apagado. |
 | **Fijar = anclar** | La nota se pega al borde derecho de la pantalla, a todo el alto, y se abre sola al iniciar Windows. |
 | **Siempre encima** | Si quieres, la nota queda delante de las demás ventanas, libre o anclada. |
 | **A tu medida** | Alto y ancho ajustables arrastrando los bordes (la nota libre); colapsar a solo la cabecera o minimizar a la barra de tareas. |
@@ -131,7 +132,20 @@ La cabecera tiene dos filas. Arrastra la fila de arriba para mover la nota.
 
 Un anillo pequeño, el texto `N de M hechas` y una barra, todos con el mismo porcentaje. Cuentan tareas **y** subtareas del día activo.
 
-A la derecha del texto, el botón de doble check **marca todas** las tareas y subtareas del día; con todo hecho pasa a **desmarcar todas**. No se ve si el día no tiene tareas.
+Junto al texto, el botón de doble check **marca todas** las tareas y subtareas del día; con todo hecho pasa a **desmarcar todas**. No se ve si el día no tiene tareas.
+
+#### Aviso por hora
+
+A la derecha del renglón hay una campana con un **interruptor**. Siempre está visible con la nota expandida, en todas las pestañas, y empieza **apagado**; su estado se recuerda.
+
+- **Cuándo avisa:** a cada hora en punto (`14:00`, `15:00`…), si **hoy** hay al menos una tarea **sin hacer** con esa hora. Varias tareas a la misma hora dan un solo aviso. Las subtareas no cuentan, y da igual qué pestaña tengas abierta.
+- **Qué hace:** suena tu mp3 una vez y aparece una notificación de Windows **silenciosa** (solo suena tu sonido) con el título `Es hora: 14:00` y los textos de esas tareas (hasta 3 y `…y N más`). Al hacer **clic** en ella, la nota se trae al frente (aunque estuviera minimizada), se expande y muestra **Hoy**.
+- **Al encenderlo** suena el mp3 una vez, para comprobar que funciona. Al apagarlo no suena nada.
+- **Siempre activo:** funciona con la nota libre, anclada, colapsada o minimizada a la barra de tareas.
+- **Avisos perdidos:** no se recuperan. Si el PC estaba suspendido a las 14:00 y despierta a las 15:02, no avisa de las 14. Al abrir la app tampoco avisa de horas ya pasadas.
+
+> [!NOTE]
+> El sonido es un archivo propio: `src/renderer/assets/sounds/task-alert.mp3` (para cambiarlo, reemplázalo y vuelve a compilar). Sin ese archivo la app funciona igual, pero solo aparece la notificación. Si Windows tiene activado el **Asistente de concentración** o las notificaciones desactivadas, la notificación puede no verse; el sonido suena igual.
 
 ### 4. Fijar, colapsar y minimizar
 
@@ -149,7 +163,7 @@ A la derecha del texto, el botón de doble check **marca todas** las tareas y su
 | **Colapsar** | Deja solo la fila de arriba de la cabecera (chevron arriba). Con la nota colapsada el botón dice **Expandir** y muestra el chevron abajo. |
 | **Minimizar** (—) | Minimizado nativo de Windows; vuelve con el icono de la barra de tareas o Alt+Tab, tal como estaba. |
 
-La nota libre mide **360 px** por defecto y puedes cambiar su **ancho** (mínimo 308 px) y su **alto** arrastrando los bordes; anclada mide **308 px** fijos. Se recuerdan posición, alto, ancho, fijada, colapsada y "Siempre encima"; si la posición queda fuera de pantalla, se centra.
+La nota libre mide **360 px** por defecto y puedes cambiar su **ancho** (mínimo 308 px) y su **alto** arrastrando los bordes; anclada mide **308 px** fijos. Se recuerdan posición, alto, ancho, fijada, colapsada, "Siempre encima" y el aviso por hora; si la posición queda fuera de pantalla, se centra.
 
 ### 5. Acerca de
 
@@ -254,6 +268,12 @@ Sí: con la app cerrada en los dos equipos, copia <code>%APPDATA%\my-sticky-note
 </details>
 
 <details>
+<summary><b>El aviso por hora no suena o no aparece la notificación.</b></summary>
+<br>
+Comprueba que el interruptor de la campana esté encendido, que haya una tarea <b>sin hacer</b> de <b>hoy</b> con esa hora exacta, y que exista <code>src/renderer/assets/sounds/task-alert.mp3</code> (sin él, no suena). Si no ves la notificación, revisa que el Asistente de concentración de Windows no la esté ocultando.
+</details>
+
+<details>
 <summary><b>¿Qué pasa con una tarea que no terminé ayer?</b></summary>
 <br>
 Se queda en Ayer tal como terminó el día. Si Hoy está vacío, pulsa <b>Traer tareas de ayer</b> para copiar la lista (sin marcar) a Hoy; también puedes verla en la pestaña Ayer o en el historial.
@@ -304,14 +324,14 @@ Capas con dependencia en un solo sentido: `core` no conoce Electron ni el DOM.
 ```
 src/
   core/        dominio + aplicación puros (sin electron ni DOM)
-    domain/      Note (días), Task, operaciones inmutables, rotación de día, orden manual (`moveTask`, `moveSubtask`, `moveSubtaskToTask`), validación y migración, días y etiquetas de fecha
+    domain/      Note (días), Task, operaciones inmutables, rotación de día, orden manual (`moveTask`, `moveSubtask`, `moveSubtaskToTask`), aviso por hora (`hour-alert`), validación y migración, días y etiquetas de fecha
     application/ NoteStore (estado, autoguardado, rotación), puertos (Clock, NoteRepository)
   main/        proceso principal: ventana (alto, anclaje), carpeta de datos, instancia única,
                inicio automático, enlaces externos permitidos, IPC, JsonNoteRepository
   preload/     puente seguro: expone window.stickyApi
   renderer/    UI en TypeScript vanilla (ui/, styles/, infrastructure/)
 tests/         domain, application, main (lógica de ventana, carpetas y autoarranque sin Electron)
-specs/         especificaciones (01 nota de escritorio … 08 orden manual de tareas … 10 orden manual de subtareas)
+specs/         especificaciones (01 nota de escritorio … 08 orden manual de tareas … 10 orden manual de subtareas … 11 aviso sonoro por hora)
 build/         recursos del instalador: icono, logo del autor, cabecera, installer.nsh
 scripts/       make-installer-art.mjs (npm run art)
 docs/          mockup de referencia (references/) e imágenes del README (img/)
@@ -407,7 +427,7 @@ Agradezco sinceramente el tiempo dedicado a revisar este proyecto. Valoro cualqu
 | **Licencia** | MIT (ver [`LICENSE`](LICENSE)) |
 | **Fecha de creación** | 12 de noviembre de 2026 |
 | **Última actualización** | 16 de noviembre de 2026 |
-| **Notas adicionales** | App de escritorio para Windows (Electron + TypeScript, sin framework de UI) con una lista de tareas por día, botón para traer las tareas de ayer, anclaje al borde de la pantalla y guardado local. |
+| **Notas adicionales** | App de escritorio para Windows (Electron + TypeScript, sin framework de UI) con una lista de tareas por día, botón para traer las tareas de ayer, aviso sonoro por hora, anclaje al borde de la pantalla y guardado local. |
 
 ---
 

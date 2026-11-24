@@ -10,11 +10,16 @@ const stickyApi: StickyApi = {
   setCollapsed: (collapsed: boolean) => ipcRenderer.invoke('window:set-collapsed', collapsed),
   setAlwaysOnTop: (alwaysOnTop: boolean) =>
     ipcRenderer.invoke('window:set-always-on-top', alwaysOnTop),
+  setHourAlerts: (hourAlerts: boolean) => ipcRenderer.invoke('window:set-hour-alerts', hourAlerts),
   resizeStart: (edge, pos) => ipcRenderer.send('window:resize-start', edge, pos),
   resizeMove: (pos) => ipcRenderer.send('window:resize-move', pos),
   resizeEnd: () => ipcRenderer.send('window:resize-end'),
   onDockedChange: (listener) => {
     ipcRenderer.on('window:docked', (_event, docked: boolean) => listener(docked))
+  },
+  notifyAlert: (message) => ipcRenderer.send('alert:notify', message),
+  onOpenToday: (listener) => {
+    ipcRenderer.on('alert:open-today', () => listener())
   },
   minimize: () => ipcRenderer.send('window:minimize'),
   close: () => ipcRenderer.invoke('window:close'),

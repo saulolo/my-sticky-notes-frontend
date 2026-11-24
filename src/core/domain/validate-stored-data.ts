@@ -79,7 +79,7 @@ const isNoteWidth = (value: unknown): value is number =>
 
 /**
  * Preferencias de ventana. `height` es opcional (un archivo de la SPEC 03 no lo tiene): si falta
- * vale `null`; `width` igual (SPEC 09). `alwaysOnTop` también (un archivo de la SPEC 04 no lo tiene): si falta vale `false`.
+ * vale `null`; `width` igual (SPEC 09). `alwaysOnTop` también (un archivo de la SPEC 04 no lo tiene): si falta vale `false`; `hourAlerts` igual (SPEC 11).
  * Se devuelve un objeto nuevo con solo las claves conocidas.
  */
 function parseWindowPrefs(value: unknown): WindowPrefs | null {
@@ -99,6 +99,8 @@ function parseWindowPrefs(value: unknown): WindowPrefs | null {
   // Solo la ausencia vale `false`: `null` u otro tipo invalidan el archivo.
   const alwaysOnTop = value.alwaysOnTop === undefined ? false : value.alwaysOnTop
   if (typeof alwaysOnTop !== 'boolean') return null
+  const hourAlerts = value.hourAlerts === undefined ? false : value.hourAlerts
+  if (typeof hourAlerts !== 'boolean') return null
   return {
     pinned: value.pinned,
     collapsed: value.collapsed,
@@ -106,7 +108,8 @@ function parseWindowPrefs(value: unknown): WindowPrefs | null {
     y: value.y as number | null,
     height,
     width,
-    alwaysOnTop
+    alwaysOnTop,
+    hourAlerts
   }
 }
 

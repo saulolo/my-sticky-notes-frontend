@@ -4,11 +4,15 @@ import { icons } from './icons'
 export interface ProgressView {
   elements: HTMLElement[]
   update(done: number, total: number, percent: number): void
+  /** Refleja el estado del aviso por hora en el switch (no dispara `onToggleAlerts`). */
+  setAlertsOn(on: boolean): void
 }
 
 export interface ProgressHandlers {
   /** `true` = marcar todas; `false` = desmarcar todas. */
   onSetAllDone(done: boolean): void
+  /** El usuario encendió (`true`) o apagó (`false`) el aviso por hora. */
+  onToggleAlerts(on: boolean): void
 }
 
 /**
@@ -25,6 +29,10 @@ export function createProgress(handlers: ProgressHandlers): ProgressView {
       </svg>
       <span class="progress-count"></span>
       <button class="ib sm progress-all" type="button">${icons.checkCheck(14)}</button>
+      <div class="alert-toggle">
+        ${icons.bell(14)}
+        <button class="alert-switch" type="button" role="switch" aria-checked="false"></button>
+      </div>
     </div>`)
   const ringFill = head.querySelector<SVGCircleElement>('.progress-ring-fill')!
   const count = head.querySelector('.progress-count')!
@@ -33,11 +41,28 @@ export function createProgress(handlers: ProgressHandlers): ProgressView {
   let markAll = true
   allBtn.addEventListener('click', () => handlers.onSetAllDone(markAll))
 
+  const alertSwitch = head.querySelector<HTMLButtonElement>('.alert-switch')!
+  let alertsOn = false
+  const setAlertsOn = (on: boolean): void => {
+    alertsOn = on
+    const label = on ? 'Desactivar aviso por hora' : 'Activar aviso por hora'
+    alertSwitch.setAttribute('aria-checked', String(on))
+    alertSwitch.setAttribute('aria-label', label)
+    alertSwitch.title = label
+  }
+  setAlertsOn(false)
+  // Un <button> ya responde a clic, Espacio y Enter.
+  alertSwitch.addEventListener('click', () => {
+    setAlertsOn(!alertsOn)
+    handlers.onToggleAlerts(alertsOn)
+  })
+
   const track = el(`<div class="progress-track"><div class="progress-fill"></div></div>`)
   const fill = track.querySelector<HTMLElement>('.progress-fill')!
 
   return {
     elements: [head, track],
+    setAlertsOn,
     update(done, total, percent): void {
       count.textContent = `${done} de ${total} hechas`
       markAll = done < total

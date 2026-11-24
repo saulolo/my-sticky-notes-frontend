@@ -52,7 +52,11 @@ function createWindow(windowControls: WindowControls): void {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: true
+      sandbox: true,
+      // Aviso por hora (SPEC 11): temporizador puntual con la ventana minimizada u oculta y mp3
+      // sin gesto del usuario.
+      backgroundThrottling: false,
+      autoplayPolicy: 'no-user-gesture-required'
     }
   })
   windowControls.attach(mainWindow)
@@ -108,7 +112,7 @@ app.whenReady().then(async () => {
   syncLaunch(stored.window.pinned)
   const windowControls = new WindowControls(repository, stored.window, syncLaunch)
   controls = windowControls
-  registerIpc(repository, windowControls)
+  registerIpc(repository, windowControls, icon)
 
   createWindow(windowControls)
 

@@ -18,7 +18,7 @@ function valid(): Record<string, unknown> {
   return {
     version: 3,
     note: { days: { '2026-11-14': [task()] } },
-    window: { pinned: false, collapsed: false, x: null, y: null, height: null, width: null, alwaysOnTop: false }
+    window: { pinned: false, collapsed: false, x: null, y: null, height: null, width: null, alwaysOnTop: false, hourAlerts: false }
   }
 }
 
@@ -217,7 +217,7 @@ describe('validateStoredData alto', () => {
       y: 20,
       height: null,
       width: null,
-      alwaysOnTop: false
+      alwaysOnTop: false, hourAlerts: false
     })
   })
 
@@ -231,12 +231,22 @@ describe('validateStoredData alto', () => {
       y: 20,
       height: 600,
       width: null,
-      alwaysOnTop: false
+      alwaysOnTop: false, hourAlerts: false
     })
   })
 
+  it('un archivo sin hourAlerts carga con hourAlerts en false', () => {
+    expect(validateStoredData(withWindow({}), TODAY)?.window.hourAlerts).toBe(false)
+  })
+
+  it('conserva hourAlerts guardado', () => {
+    expect(validateStoredData(withWindow({ hourAlerts: true }), TODAY)?.window.hourAlerts).toBe(
+      true
+    )
+  })
+
   it('conserva alwaysOnTop guardado', () => {
-    expect(validateStoredData(withWindow({ alwaysOnTop: true }), TODAY)?.window.alwaysOnTop).toBe(
+    expect(validateStoredData(withWindow({ alwaysOnTop: true, hourAlerts: false }), TODAY)?.window.alwaysOnTop).toBe(
       true
     )
   })
@@ -269,7 +279,9 @@ describe('validateStoredData alto', () => {
     ['width decimal', { width: 400.5 }],
     ['width como texto', { width: '400' }],
     ['alwaysOnTop como texto', { alwaysOnTop: 'true' }],
-    ['alwaysOnTop null', { alwaysOnTop: null }]
+    ['alwaysOnTop null', { alwaysOnTop: null }],
+    ['hourAlerts como texto', { hourAlerts: 'true' }],
+    ['hourAlerts null', { hourAlerts: null }]
   ])('rechaza preferencias con %s', (_name, patch) => {
     expect(validateStoredData(withWindow(patch), TODAY)).toBeNull()
   })
@@ -292,7 +304,7 @@ describe('validateStoredData migración v1', () => {
         y: null,
         height: null,
         width: null,
-        alwaysOnTop: false
+        alwaysOnTop: false, hourAlerts: false
       }
     })
   })
