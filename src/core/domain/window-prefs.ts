@@ -14,6 +14,8 @@ export interface WindowPrefs {
   width: number | null
   /** Siempre encima de las demás ventanas. Independiente de `pinned` (libre o anclada). */
   alwaysOnTop: boolean
+  /** Aviso sonoro y notificación a cada hora en punto con tareas pendientes de esa hora (SPEC 11). */
+  hourAlerts: boolean
 }
 
 /** Lo que el renderer recibe de `window:get-prefs`: preferencias + si está anclada (fijada = anclada). */
@@ -32,7 +34,8 @@ export const DEFAULT_WINDOW_PREFS: WindowPrefs = {
   y: null,
   height: null,
   width: null,
-  alwaysOnTop: false
+  alwaysOnTop: false,
+  hourAlerts: false
 }
 
 /**

@@ -1,6 +1,7 @@
 import { app, ipcMain, shell } from 'electron'
 import type { Note } from '../core/domain/note'
 import type { WindowState } from '../core/domain/window-prefs'
+import { parseAlertPayload, showAlertNotification } from './alert-notification'
 import { externalLinkUrl } from './external-links'
 import type { JsonNoteRepository } from './json-note-repository'
 import type { ResizeEdge, WindowControls } from './window-controls'
@@ -12,10 +13,12 @@ export const IPC = {
   windowSetPinned: 'window:set-pinned',
   windowSetCollapsed: 'window:set-collapsed',
   windowSetAlwaysOnTop: 'window:set-always-on-top',
+  windowSetHourAlerts: 'window:set-hour-alerts',
   windowResizeStart: 'window:resize-start',
   windowResizeMove: 'window:resize-move',
   windowResizeEnd: 'window:resize-end',
   windowMinimize: 'window:minimize',
+  alertNotify: 'alert:notify',
   windowClose: 'window:close',
   appOpenLink: 'app:open-link'
 } as const
@@ -37,7 +40,11 @@ function assertEdge(value: unknown): ResizeEdge {
   return value
 }
 
-export function registerIpc(repository: JsonNoteRepository, controls: WindowControls): void {
+export function registerIpc(
+  repository: JsonNoteRepository,
+  controls: WindowControls,
+  icon: string
+): void {
   ipcMain.handle(IPC.noteLoad, async (): Promise<Note> => (await repository.load()).note)
   ipcMain.handle(IPC.noteSave, (_event, note: Note): Promise<void> => repository.saveNote(note))
 
@@ -51,6 +58,9 @@ export function registerIpc(repository: JsonNoteRepository, controls: WindowCont
   ipcMain.handle(IPC.windowSetAlwaysOnTop, (_event, alwaysOnTop: unknown): void =>
     controls.setAlwaysOnTop(assertBoolean(alwaysOnTop))
   )
+  ipcMain.handle(IPC.windowSetHourAlerts, (_event, hourAlerts: unknown): void =>
+    controls.setHourAlerts(assertBoolean(hourAlerts))
+  )
   // Arrastre de los bordes: mensajes sin respuesta (uno por pointermove). La coordenada es
   // `screenY` en los bordes de arriba/abajo y `screenX` en los laterales.
   ipcMain.on(IPC.windowResizeStart, (_event, edge: unknown, pos: unknown): void =>
@@ -61,6 +71,10 @@ export function registerIpc(repository: JsonNoteRepository, controls: WindowCont
   )
   ipcMain.on(IPC.windowResizeEnd, (): void => controls.endResize())
   ipcMain.on(IPC.windowMinimize, (): void => controls.minimize())
+  // Aviso por hora: toast silencioso; el clic trae la nota al frente en Hoy.
+  ipcMain.on(IPC.alertNotify, (_event, payload: unknown): void =>
+    showAlertNotification(parseAlertPayload(payload), icon, () => controls.reveal())
+  )
   // El renderer ya hizo flush de la nota. Antes de salir, `before-quit` espera las escrituras.
   ipcMain.handle(IPC.windowClose, (): void => app.quit())
   // "Acerca de": el renderer manda una clave; solo se abren las URLs de EXTERNAL_LINKS.

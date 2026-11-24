@@ -11,6 +11,8 @@ export interface StickyApi {
   setCollapsed(collapsed: boolean): Promise<void>
   /** Siempre encima de las demás ventanas (libre o anclada). Se guarda. */
   setAlwaysOnTop(alwaysOnTop: boolean): Promise<void>
+  /** Aviso sonoro por hora (SPEC 11). Se guarda. */
+  setHourAlerts(hourAlerts: boolean): Promise<void>
   /**
    * Empieza a cambiar el alto (bordes `top`/`bottom`, `pos` = `screenY`) o el ancho (`left`/`right`,
    * `pos` = `screenX`) arrastrando el borde `edge`. Coordenadas en DIP.
@@ -21,6 +23,10 @@ export interface StickyApi {
   resizeEnd(): void
   /** Avisa cuando la ventana se ancla (fijar) o se desancla (desfijar). */
   onDockedChange(listener: (docked: boolean) => void): void
+  /** Muestra la notificación de Windows del aviso por hora (silenciosa). */
+  notifyAlert(message: { title: string; body: string }): void
+  /** Clic en la notificación: la nota ya está al frente; el renderer pasa a Hoy y expande. */
+  onOpenToday(listener: () => void): void
   /** Minimiza la ventana a la barra de tareas. No guarda nada. */
   minimize(): void
   /** Sale de la app. El llamador debe hacer flush de la nota antes. */

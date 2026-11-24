@@ -27,6 +27,9 @@ const POSITION_DEBOUNCE_MS = 300
 /** Canal main → renderer: la ventana se ancló o se desancló. Lo escucha el preload. */
 export const DOCKED_CHANNEL = 'window:docked'
 
+/** Canal main → renderer: ir a la pestaña Hoy y expandir (clic en el aviso por hora). */
+export const OPEN_TODAY_CHANNEL = 'alert:open-today'
+
 export type ResizeEdge = 'top' | 'bottom' | 'left' | 'right'
 
 interface ResizeDrag {
@@ -131,6 +134,12 @@ export class WindowControls {
     window.webContents.send(DOCKED_CHANNEL, pinned)
   }
 
+  /** Aviso por hora (SPEC 11): solo se guarda; el temporizador vive en el renderer. */
+  setHourAlerts(hourAlerts: boolean): void {
+    if (hourAlerts === this.prefs.hourAlerts) return
+    this.update({ hourAlerts })
+  }
+
   /** Siempre encima de las demás ventanas, libre o anclada. Se guarda al instante. */
   setAlwaysOnTop(alwaysOnTop: boolean): void {
     if (alwaysOnTop === this.prefs.alwaysOnTop) return
@@ -210,6 +219,19 @@ export class WindowControls {
       if (height !== this.prefs.height) this.update({ height })
     }
     this.persistPosition()
+  }
+
+  /**
+   * Trae la nota al frente (clic en el aviso por hora): restaura si estaba minimizada, la muestra
+   * y la enfoca. Expandir y pasar a Hoy lo hace el renderer al recibir `alert:open-today`.
+   */
+  reveal(): void {
+    const window = this.window
+    if (!window || window.isDestroyed()) return
+    if (window.isMinimized()) window.restore()
+    window.show()
+    window.focus()
+    window.webContents.send(OPEN_TODAY_CHANNEL)
   }
 
   /** Minimizado nativo a la barra de tareas. No añade nada a las preferencias (el estado minimizado no se guarda). */

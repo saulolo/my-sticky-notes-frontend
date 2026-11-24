@@ -7,6 +7,7 @@ import './styles/app.css'
 import { NoteStore } from '../core/application/note-store'
 import { shortDateLabel } from '../core/domain/date-label'
 import { addDays, dayDate, dayKey, dayLabel, pastDays, type DayKey } from '../core/domain/day'
+import { alertMessage, dueAlertTasks, msUntilNextHour } from '../core/domain/hour-alert'
 import type { Note } from '../core/domain/note'
 import { progress, tasksOf } from '../core/domain/note-operations'
 import { IpcNoteRepository } from './infrastructure/ipc-note-repository'
@@ -15,6 +16,7 @@ import { createCarryOver } from './ui/carry-over'
 import { el } from './ui/dom'
 import { createFooter } from './ui/footer'
 import { createHeader } from './ui/header'
+import { playAlert } from './ui/alert-sound'
 import { createProgress } from './ui/progress'
 import { createResizeHandles } from './ui/resize-handles'
 import { createTaskList } from './ui/task-list'
@@ -35,6 +37,7 @@ const store = new NoteStore({
 // Estado de la ventana (lo guarda y aplica el proceso principal).
 let pinned = false
 let alwaysOnTop = false
+let hourAlerts = false
 let collapsed = false
 let closing = false
 
@@ -120,7 +123,15 @@ const header = createHeader({
 })
 const about = createAbout({ onOpenLink: (key) => window.stickyApi.openLink(key) })
 const footer = createFooter()
-const progressView = createProgress({ onSetAllDone: (done) => store.setAllDone(activeDay, done) })
+const progressView = createProgress({
+  onSetAllDone: (done) => store.setAllDone(activeDay, done),
+  onToggleAlerts: (on) => {
+    hourAlerts = on
+    window.stickyApi.setHourAlerts(on).catch(logWindowError('guardar el aviso por hora'))
+    // Vista previa: al encender suena el mp3 una vez (sin toast).
+    if (on) playAlert()
+  }
+})
 const taskList = createTaskList({
   onAdd: (text, hour) => store.addTask(activeDay, text, hour),
   currentHour: () => clock.now().getHours(),
@@ -211,6 +222,40 @@ function scheduleMidnight(): void {
 
 scheduleMidnight()
 
+// ---------- Aviso por hora (SPEC 11) ----------
+/** Holgura tras el instante exacto: un temporizador que dispara un pelo antes no vería la hora nueva. */
+const HOUR_ALERT_SLACK_MS = 100
+
+/**
+ * Se dispara cerca de cada HH:00. Solo avisa si la hora local sigue siendo la programada (si el PC
+ * estuvo suspendido y despertó en otra hora, el aviso perdido no se recupera). Siempre reprograma.
+ */
+function onHourAlert(expectedHour: number): void {
+  const now = clock.now()
+  if (hourAlerts && now.getHours() === expectedHour) {
+    const due = dueAlertTasks(store.getNote(), today(), expectedHour)
+    if (due.length > 0) {
+      playAlert()
+      window.stickyApi.notifyAlert(alertMessage(expectedHour, due))
+    }
+  }
+  scheduleHourAlert()
+}
+
+function scheduleHourAlert(): void {
+  const now = clock.now()
+  const expectedHour = (now.getHours() + 1) % 24
+  setTimeout(() => onHourAlert(expectedHour), msUntilNextHour(now) + HOUR_ALERT_SLACK_MS)
+}
+
+scheduleHourAlert()
+
+// Clic en el aviso: el main ya trajo la ventana al frente; aquí se expande y se va a Hoy.
+window.stickyApi.onOpenToday(() => {
+  selectDay(today())
+  if (collapsed) void setCollapsed(false)
+})
+
 // Estado guardado de la ventana. La ventana ya se creó con la altura y el "fijado" correctos.
 window.stickyApi
   .getWindowPrefs()
@@ -219,6 +264,8 @@ window.stickyApi
     collapsed = prefs.collapsed
     alwaysOnTop = prefs.alwaysOnTop
     header.setAlwaysOnTop(alwaysOnTop)
+    hourAlerts = prefs.hourAlerts
+    progressView.setAlertsOn(hourAlerts)
     applyDocked(prefs.docked)
     applyPinned()
     applyCollapsed()
