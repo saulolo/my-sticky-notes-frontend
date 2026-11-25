@@ -56,7 +56,8 @@ Cada día empieza limpio, con un clic traes las tareas de ayer y todo se guarda 
 | **Una lista por día** | Pestañas **Ayer**, **Hoy** y **Mañana**, más un historial con los 5 días anteriores. Todos se pueden editar. |
 | **Hoy empieza limpio** | Nada se mueve solo: cada día conserva sus tareas, hechas o no. Si Hoy está vacío, el botón **Traer tareas de ayer** copia (sin marcar) la lista del último día con tareas. Se usa una vez al día. |
 | **Orden manual** | Cada tarea lleva su hora (0–23) como etiqueta y tú decides el orden arrastrándolas. Una capa de subtareas, contraíble, que también reordenas o pasas a otra tarea. |
-| **Progreso de un vistazo** | Anillo, `N de M hechas` y barra, contando tareas y subtareas. Un botón **marca o desmarca todas** las del día. |
+| **Progreso de un vistazo** | Anillo, `N de M hechas` y barra, contando tareas y subtareas. Un botón **marca o desmarca todas** las del día y otro las **borra todas** (con confirmación). |
+| **Plantillas** | Una pestaña con grupos de tareas con nombre (por ejemplo, uno por empresa), apilados y plegables. Con **Copiar a Hoy** añades todas las tareas de un grupo al final de Hoy, sin marcar. Las plantillas nunca cambian solas. |
 | **Aviso por hora** | Un interruptor (campana) en el bloque de progreso: a cada hora en punto, si hoy tienes una tarea pendiente con esa hora, suena tu mp3 y aparece una notificación de Windows. Empieza apagado. |
 | **Fijar = anclar** | La nota se pega al borde derecho de la pantalla, a todo el alto, y se abre sola al iniciar Windows. |
 | **Siempre encima** | Si quieres, la nota queda delante de las demás ventanas, libre o anclada. |
@@ -115,11 +116,11 @@ La cabecera tiene dos filas. Arrastra la fila de arriba para mover la nota.
 | Fila | Izquierda | Centro | Derecha |
 |---|---|---|---|
 | **Arriba** | Configuración · fecha corta del día (`Lun, 16 nov`) | zona para arrastrar | Siempre encima · Fijar · Colapsar (︿/﹀) · Minimizar (—) · Cerrar |
-| **Abajo** | **+** Nueva tarea | **Ayer · Hoy · Mañana** | Días anteriores |
+| **Abajo** | **+** Nueva tarea (en Plantillas, Nuevo grupo) | **Ayer · Hoy · Mañana · Plantillas** | Días anteriores |
 
 ### 2. Tareas y subtareas
 
-- **+** (Nueva tarea) muestra la fila "Añadir nueva tarea…" con la hora (vacía = la hora actual). **Enter** crea la tarea y deja el foco listo para la siguiente.
+- **+** (Nueva tarea) muestra la fila "Añadir nueva tarea…" con la hora (vacía = la hora actual). **Enter** crea la tarea y deja el foco listo para la siguiente. Si haces **clic fuera** con texto escrito, la tarea también se crea (con la hora vacía o mal escrita usa la hora actual); **Esc** descarta lo escrito.
 - Cada tarea tiene casilla, hora, texto y botones para **añadir subtarea** y **eliminar**.
 - **Doble clic** en el texto o la hora para editarlos. Cambiar la hora no mueve la tarea.
 - **Arrastra** una tarea (clic sostenido en la fila, fuera de la casilla y los botones) para ponerla donde quieras. Las nuevas se añaden al final. Funciona en Ayer, Hoy, Mañana y el historial.
@@ -132,7 +133,7 @@ La cabecera tiene dos filas. Arrastra la fila de arriba para mover la nota.
 
 Un anillo pequeño, el texto `N de M hechas` y una barra, todos con el mismo porcentaje. Cuentan tareas **y** subtareas del día activo.
 
-Junto al texto, el botón de doble check **marca todas** las tareas y subtareas del día; con todo hecho pasa a **desmarcar todas**. No se ve si el día no tiene tareas.
+Junto al texto, el botón de doble check **marca todas** las tareas y subtareas del día; con todo hecho pasa a **desmarcar todas**. A su lado, la papelera **Borrar todas** elimina todas las tareas del día (hechas o no, con sus subtareas) tras confirmar dentro de la nota: "¿Borrar las 5 tareas de Hoy?". Funciona en cualquier día; los demás días y las plantillas no cambian. Los dos botones se ocultan si el día no tiene tareas.
 
 #### Aviso por hora
 
@@ -147,7 +148,19 @@ A la derecha del renglón hay una campana con un **interruptor**. Siempre está 
 > [!NOTE]
 > El sonido es un archivo propio: `src/renderer/assets/sounds/task-alert.mp3` (para cambiarlo, reemplázalo y vuelve a compilar). Sin ese archivo la app funciona igual, pero solo aparece la notificación. Si Windows tiene activado el **Asistente de concentración** o las notificaciones desactivadas, la notificación puede no verse; el sonido suena igual.
 
-### 4. Fijar, colapsar y minimizar
+### 4. Plantillas
+
+La pestaña **Plantillas** (después de Mañana; solo con icono en la nota anclada o estrecha) guarda listas que repites, por ejemplo una por empresa o por tipo de día.
+
+- **Grupos apilados:** todos se ven a la vez, uno debajo del otro. Cada cabecera muestra el nombre, el número de tareas y el botón **Copiar a Hoy** (icono de copiar). Un **clic** en la cabecera pliega o despliega el grupo, y se recuerda.
+- **Crear un grupo:** con el **+** de la fila de días (en Plantillas se llama "Nuevo grupo") o con **Crear grupo** si aún no hay ninguno. Escribe el nombre (hasta 40 caracteres) y pulsa **Enter**.
+- **Al pasar el ratón** por la cabecera aparecen **+** (añadir tarea al grupo), lápiz (**renombrar**) y papelera (**borrar**, con confirmación dentro de la nota).
+- **Ordenar grupos:** mantén presionada la cabecera y arrástrala (**Esc** cancela).
+- **Tareas del grupo:** las mismas filas que en un día, **sin casilla** (las plantillas no se marcan): hora, texto, subtareas, editar, borrar y arrastrar para ordenar, siempre dentro de su grupo.
+- **Copiar a Hoy:** añade todas las tareas del grupo, en su orden y con sus subtareas, al **final de Hoy**, sin marcar y con la misma hora y texto, y cambia a la pestaña Hoy. Puedes copiar el mismo grupo (u otro) las veces que quieras. Está desactivado si el grupo no tiene tareas.
+- **Nada pasa solo:** las plantillas no se mueven a ningún día, no cuentan en el progreso ni dan aviso por hora. Marcar, editar o borrar una copia en Hoy no cambia la plantilla.
+
+### 5. Fijar, colapsar y minimizar
 
 <table>
 <tr>
@@ -165,7 +178,7 @@ A la derecha del renglón hay una campana con un **interruptor**. Siempre está 
 
 La nota libre mide **360 px** por defecto y puedes cambiar su **ancho** (mínimo 308 px) y su **alto** arrastrando los bordes; anclada mide **308 px** fijos. Se recuerdan posición, alto, ancho, fijada, colapsada, "Siempre encima" y el aviso por hora; si la posición queda fuera de pantalla, se centra.
 
-### 5. Acerca de
+### 6. Acerca de
 
 <p align="center"><img src="docs/img/acerca-de.png" alt="Panel Acerca de con versión, descripción y créditos" width="300"></p>
 
@@ -193,7 +206,7 @@ flowchart LR
 
 El botón **Traer tareas de ayer** aparece dentro de la lista vacía de Hoy, solo en esa pestaña, y se usa una vez al día (si borras todo después, no vuelve hasta el día siguiente). Las copias conservan hora, texto y orden, quedan desmarcadas y Ayer no cambia.
 
-Al abrir, la pestaña activa siempre es **Hoy**. Con la app abierta a medianoche, la pestaña salta sola al nuevo día.
+Al abrir, la pestaña activa siempre es **Hoy**. Con la app abierta a medianoche, la pestaña salta sola al nuevo día (si estabas en **Plantillas**, te quedas ahí). Las plantillas no cambian con el día.
 
 ---
 
@@ -202,7 +215,11 @@ Al abrir, la pestaña activa siempre es **Hoy**. Con la app abierta a medianoche
 | Acción | Cómo |
 |---|---|
 | Crear tarea | **+** (Nueva tarea) y luego **Enter** (el foco queda listo para la siguiente) |
-| Descartar la tarea a medio escribir | **Esc** o clic fuera de la fila |
+| Crear la tarea a medio escribir | Clic fuera de la fila (con texto) |
+| Descartar la tarea a medio escribir | **Esc** |
+| Borrar todas las tareas del día | Papelera junto a "Marcar todas" y luego **Borrar** (**Esc** cancela) |
+| Plegar o desplegar un grupo de plantillas | **Clic** en su cabecera |
+| Reordenar grupos de plantillas | **Mantén presionada** la cabecera del grupo y arrástrala (**Esc** cancela) |
 | Editar texto u hora | **Doble clic** |
 | Reordenar tareas | **Mantén presionada** la fila de la tarea y arrástrala arriba o abajo (**Esc** cancela). Sus subtareas viajan con ella |
 | Reordenar subtareas | **Mantén presionada** la fila de la subtarea y arrástrala arriba o abajo; si la sueltas sobre otra tarea del mismo día, pasa a esa tarea (**Esc** cancela) |
@@ -225,6 +242,7 @@ Al abrir, la pestaña activa siempre es **Hoy**. Con la app abierta a medianoche
 | **Escritura segura** | Primero un archivo temporal y luego se renombra. Si el archivo se daña, se respalda como `note.corrupt-<fecha>.json` y la app arranca vacía |
 | **Orden** | Se guarda el orden en que dejas las tareas de cada día. Al actualizar desde una versión anterior, las notas existentes se ordenan por hora una sola vez y desde ahí mandas tú |
 | **Historial** | Se conservan hoy y los 5 días anteriores, con sus tareas hechas y pendientes tal como quedaron; los días más antiguos se borran |
+| **Plantillas** | Se guardan en el mismo archivo, con su orden y si están plegadas. No caducan: el cambio de día no las toca |
 | **Copia de seguridad** | Copia `note.json` con la app cerrada. Para restaurar, vuelve a ponerlo en su sitio |
 | **Al desinstalar** | Las notas se conservan salvo que marques "Borrar también mis notas"; si reinstalas, las recuperas |
 | **Versión de desarrollo** | `npm run dev` y `npm start` usan otra carpeta: `%APPDATA%\my-sticky-notes-dev\` |

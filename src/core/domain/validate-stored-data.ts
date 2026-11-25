@@ -1,5 +1,12 @@
 import type { DayKey } from './day'
-import { isValidHour, type Note, type Subtask, type Task } from './note'
+import {
+  isValidHour,
+  TEMPLATE_NAME_MAX,
+  type Note,
+  type Subtask,
+  type Task,
+  type TemplateGroup
+} from './note'
 import { tasksByHour } from './note-operations'
 import { MIN_NOTE_HEIGHT, MIN_NOTE_WIDTH, type StoredData, type WindowPrefs } from './window-prefs'
 
@@ -48,7 +55,24 @@ export function isNote(value: unknown): value is Note {
     Object.entries(value.days).every(([day, tasks]) => DAY_KEY.test(day) && isTaskList(tasks)) &&
     // Solo la ausencia es válida: `null` u otro valor invalida el archivo.
     (value.lastCarryOver === undefined ||
-      (typeof value.lastCarryOver === 'string' && DAY_KEY.test(value.lastCarryOver)))
+      (typeof value.lastCarryOver === 'string' && DAY_KEY.test(value.lastCarryOver))) &&
+    // SPEC 12: solo la ausencia es válida; `null` u otro valor invalida el archivo.
+    (value.templates === undefined ||
+      (Array.isArray(value.templates) && value.templates.every(isTemplateGroup)))
+  )
+}
+
+function isTemplateGroup(value: unknown): value is TemplateGroup {
+  return (
+    isObj(value) &&
+    typeof value.id === 'string' &&
+    value.id !== '' &&
+    typeof value.name === 'string' &&
+    value.name.trim() !== '' &&
+    value.name === value.name.trim() &&
+    value.name.length <= TEMPLATE_NAME_MAX &&
+    isTaskList(value.tasks) &&
+    (value.collapsed === undefined || typeof value.collapsed === 'boolean')
   )
 }
 
@@ -115,7 +139,8 @@ function parseWindowPrefs(value: unknown): WindowPrefs | null {
 
 /**
  * Valida `StoredData` v1, v2 o v3 y devuelve siempre v3; si no es válido, `null`.
- * - v3: se devuelve solo `note.days` en el orden guardado (orden manual, sin reordenar).
+ * - v3: se devuelve `note.days` en el orden guardado (orden manual, sin reordenar), más
+ *   `lastCarryOver` y `templates` (SPEC 12) si están.
  * - v2: igual, pero cada lista se ordena por hora una sola vez (migración SPEC 08).
  * - v1: se valida con las reglas estrictas, sus tareas pasan a `note.days[today]` ordenadas
  *   por hora (sin tareas, `days` queda `{}`) y `title` se descarta.
@@ -126,9 +151,11 @@ export function validateStoredData(value: unknown, today: DayKey): StoredData | 
   if (prefs === null) return null
 
   if ((value.version === 2 || value.version === 3) && isNote(value.note)) {
-    const { lastCarryOver } = value.note
+    const { lastCarryOver, templates } = value.note
     const days = value.version === 2 ? sortDaysByHour(value.note.days) : value.note.days
-    const note: Note = lastCarryOver === undefined ? { days } : { days, lastCarryOver }
+    const note: Note = { days }
+    if (lastCarryOver !== undefined) note.lastCarryOver = lastCarryOver
+    if (templates !== undefined) note.templates = templates
     return { version: 3, note, window: prefs }
   }
 

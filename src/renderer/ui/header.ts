@@ -25,13 +25,16 @@ export interface HeaderView {
   setDate(label: string): void
   /**
    * Días de las pestañas "Ayer", "Hoy" y "Mañana" y el día activo (se marca con `--accent`).
-   * Si el activo no es ninguno de los tres, se marca el botón de historial.
+   * Si el activo no es ninguno de los tres, se marca el botón de historial. `null` = la pestaña
+   * activa es Plantillas (SPEC 12); entonces el "+" se llama "Nuevo grupo".
    */
-  setDays(yesterday: DayKey, today: DayKey, tomorrow: DayKey, active: DayKey): void
+  setDays(yesterday: DayKey, today: DayKey, tomorrow: DayKey, active: DayKey | null): void
 }
 
 export interface HeaderHandlers {
   onSelectDay(day: DayKey): void
+  /** Pestaña "Plantillas" (SPEC 12). */
+  onSelectTemplates(): void
   /** Días anteriores a ayer con tareas, del más reciente al más viejo. Se pide al abrir el menú. */
   getPastDays(): PastDayItem[]
   /**
@@ -76,6 +79,8 @@ export function createHeader(handlers: HeaderHandlers): HeaderView {
         <button class="day-tab" type="button" aria-pressed="false">Ayer</button>
         <button class="day-tab" type="button" aria-pressed="true">Hoy</button>
         <button class="day-tab" type="button" aria-pressed="false">Mañana</button>
+        <div class="divider"></div>
+        <button class="day-tab templates-tab" type="button" aria-pressed="false" aria-label="Plantillas" title="Plantillas">${icons.template(14)}<span class="tab-label">Plantillas</span></button>
       </div>
       <div class="history-wrap">
         <button class="ib history" type="button" aria-label="Días anteriores" title="Días anteriores" aria-haspopup="menu" aria-expanded="false">${icons.history(15)}</button>
@@ -85,21 +90,29 @@ export function createHeader(handlers: HeaderHandlers): HeaderView {
   const pinButton = element.querySelector<HTMLButtonElement>('.pin')!
   const onTopButton = element.querySelector<HTMLButtonElement>('.on-top')!
   const collapseButton = element.querySelector<HTMLButtonElement>('.collapse')!
-  const dateText =element.querySelector<HTMLElement>('.header-date')!
+  const dateText = element.querySelector<HTMLElement>('.header-date')!
   const settingsButton = element.querySelector<HTMLButtonElement>('.settings')!
   const settingsMenu = element.querySelector<HTMLElement>('.settings-menu')!
   const historyButton = dayRow.querySelector<HTMLButtonElement>('.history')!
   const menu = dayRow.querySelector<HTMLElement>('.history-menu')!
 
+  const newTaskButton = dayRow.querySelector<HTMLButtonElement>('.new-task')!
+  const templatesTab = dayRow.querySelector<HTMLButtonElement>('.templates-tab')!
+
+  /** Día activo; '' con la pestaña Plantillas activa. */
   let activeDay = ''
 
-  // Cada pestaña guarda su día en `data-day` (lo fija `setDays`).
-  const tabs = [...dayRow.querySelectorAll<HTMLButtonElement>('.day-tab')]
+  // Cada pestaña de día guarda su día en `data-day` (lo fija `setDays`).
+  const tabs = [...dayRow.querySelectorAll<HTMLButtonElement>('.day-tab:not(.templates-tab)')]
   for (const tab of tabs) {
     tab.addEventListener('click', () => {
       if (tab.dataset.day) handlers.onSelectDay(tab.dataset.day)
     })
   }
+  templatesTab.addEventListener('click', () => {
+    closeMenu(false)
+    handlers.onSelectTemplates()
+  })
 
   // ---------- Menú de historial ----------
   const menuItems = (): HTMLButtonElement[] => [
@@ -171,7 +184,7 @@ export function createHeader(handlers: HeaderHandlers): HeaderView {
     if (event.key === 'Escape') closeMenu(true)
   })
 
-  dayRow.querySelector('.new-task')!.addEventListener('click', () => {
+  newTaskButton.addEventListener('click', () => {
     closeMenu(false)
     handlers.onNewTask()
   })
@@ -258,8 +271,8 @@ export function createHeader(handlers: HeaderHandlers): HeaderView {
     setDate(label: string): void {
       dateText.textContent = label
     },
-    setDays(yesterday: DayKey, today: DayKey, tomorrow: DayKey, active: DayKey): void {
-      activeDay = active
+    setDays(yesterday: DayKey, today: DayKey, tomorrow: DayKey, active: DayKey | null): void {
+      activeDay = active ?? ''
       const days = [yesterday, today, tomorrow]
       tabs.forEach((tab, i) => (tab.dataset.day = days[i]))
       for (const tab of tabs) {
@@ -267,7 +280,13 @@ export function createHeader(handlers: HeaderHandlers): HeaderView {
         tab.classList.toggle('is-active', isActive)
         tab.setAttribute('aria-pressed', String(isActive))
       }
-      historyButton.classList.toggle('is-on', !days.includes(active))
+      templatesTab.classList.toggle('is-active', active === null)
+      templatesTab.setAttribute('aria-pressed', String(active === null))
+      historyButton.classList.toggle('is-on', active !== null && !days.includes(active))
+      // En Plantillas el "+" crea un grupo.
+      const label = active === null ? 'Nuevo grupo' : 'Nueva tarea'
+      newTaskButton.title = label
+      newTaskButton.setAttribute('aria-label', label)
     }
   }
 }

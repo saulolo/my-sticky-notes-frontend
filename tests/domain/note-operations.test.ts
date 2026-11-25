@@ -3,6 +3,10 @@ import { createEmptyNote, parseHour, type Note, type Task } from '../../src/core
 import {
   addSubtask,
   addTask,
+  addTemplateGroup,
+  addTemplateTask,
+  carryOver,
+  deleteAllTasks,
   deleteSubtask,
   deleteTask,
   editSubtask,
@@ -69,6 +73,44 @@ describe('setAllDone', () => {
     const next = setAllDone(other, D, true)
     expect(tasksOf(next, '2026-11-13')).toBe(tasksOf(other, '2026-11-13'))
     expect(T(other).some((t) => t.done)).toBe(false)
+  })
+})
+
+describe('deleteAllTasks (SPEC 12)', () => {
+  const D2 = '2026-11-13'
+
+  it('borra todas las tareas del día, hechas o no, con sus subtareas', () => {
+    const note = deleteAllTasks(toggleTask(noteWith(), 't2'), D)
+    expect(T(note)).toEqual([])
+    expect(note.days[D]).toEqual([])
+    expect(prog(note)).toEqual({ done: 0, total: 0, percent: 0 })
+  })
+
+  it('devuelve el mismo objeto si el día está vacío o no existe', () => {
+    const note = noteWith()
+    expect(deleteAllTasks(note, D2)).toBe(note)
+    const empty = deleteAllTasks(note, D)
+    expect(deleteAllTasks(empty, D)).toBe(empty)
+  })
+
+  it('no toca otros días, plantillas ni lastCarryOver, y no muta la nota original', () => {
+    let note = addTask(noteWith(), D2, 'Otro', { id: 'x', now: at(10) })
+    note = carryOver(
+      note,
+      '2026-11-14',
+      (() => {
+        let n = 0
+        return () => `c${++n}`
+      })()
+    )
+    note = addTemplateGroup(note, 'Empresa', 'g1')
+    note = addTemplateTask(note, 'g1', 'Correo', { id: 'p1', now: at(9) })
+    const next = deleteAllTasks(note, D)
+    expect(tasksOf(next, D2)).toBe(tasksOf(note, D2))
+    expect(tasksOf(next, '2026-11-14')).toBe(tasksOf(note, '2026-11-14'))
+    expect(next.templates).toBe(note.templates)
+    expect(next.lastCarryOver).toBe('2026-11-14')
+    expect(T(note).map((t) => t.id)).toEqual(['t1', 't2'])
   })
 })
 

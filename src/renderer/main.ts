@@ -9,23 +9,28 @@ import { shortDateLabel } from '../core/domain/date-label'
 import { addDays, dayDate, dayKey, dayLabel, pastDays, type DayKey } from '../core/domain/day'
 import { alertMessage, dueAlertTasks, msUntilNextHour } from '../core/domain/hour-alert'
 import type { Note } from '../core/domain/note'
-import { progress, tasksOf } from '../core/domain/note-operations'
+import { progress, tasksOf, templateGroups } from '../core/domain/note-operations'
 import { IpcNoteRepository } from './infrastructure/ipc-note-repository'
 import { createAbout } from './ui/about'
 import { createCarryOver } from './ui/carry-over'
+import { createConfirm } from './ui/confirm'
 import { el } from './ui/dom'
 import { createFooter } from './ui/footer'
 import { createHeader } from './ui/header'
 import { playAlert } from './ui/alert-sound'
-import { createProgress } from './ui/progress'
+import { createProgress, deleteAllText } from './ui/progress'
 import { createResizeHandles } from './ui/resize-handles'
 import { createTaskList } from './ui/task-list'
+import { createTemplateList, type TemplateTaskHandlers } from './ui/template-list'
 
 const clock = { now: (): Date => new Date() }
 const today = (): DayKey => dayKey(clock.now())
 
-// Día cuya lista se muestra. Al abrir la app es siempre Hoy (no se guarda).
-let activeDay: DayKey = today()
+/** Lo que muestra la lista: un día o la pestaña Plantillas (SPEC 12). */
+type View = { kind: 'day'; day: DayKey } | { kind: 'templates' }
+
+// Al abrir la app la vista es siempre Hoy (no se guarda).
+let view: View = { kind: 'day', day: today() }
 
 const store = new NoteStore({
   repository: new IpcNoteRepository(),
@@ -79,13 +84,20 @@ function setCollapsed(value: boolean): Promise<void> {
 }
 
 function selectDay(day: DayKey): void {
-  if (day === activeDay) return
-  activeDay = day
+  if (view.kind === 'day' && view.day === day) return
+  view = { kind: 'day', day }
+  render(store.getNote())
+}
+
+function selectTemplates(): void {
+  if (view.kind === 'templates') return
+  view = { kind: 'templates' }
   render(store.getNote())
 }
 
 const header = createHeader({
   onSelectDay: selectDay,
+  onSelectTemplates: selectTemplates,
   // Ayer ya tiene su pestaña: el menú lista solo los días anteriores (hoy − 2 a hoy − 5).
   getPastDays: () => {
     const todayKey = today()
@@ -97,8 +109,8 @@ const header = createHeader({
   // Colapsado, el menú del engranaje se recortaría: primero se expande.
   beforeOpenSettings: () => (collapsed ? setCollapsed(false) : Promise.resolve()),
   onOpenAbout: () => about.open(),
-  // Colapsada no hay "+": la fila de días se oculta.
-  onNewTask: () => taskList.openAddRow(),
+  // Colapsada no hay "+": la fila de días se oculta. En Plantillas el "+" crea un grupo.
+  onNewTask: () => (view.kind === 'day' ? taskList.openAddRow() : templateList.openNewGroup()),
   onToggleAlwaysOnTop: () => {
     alwaysOnTop = !alwaysOnTop
     header.setAlwaysOnTop(alwaysOnTop)
@@ -123,17 +135,29 @@ const header = createHeader({
 })
 const about = createAbout({ onOpenLink: (key) => window.stickyApi.openLink(key) })
 const footer = createFooter()
+// Confirmación de borrado dentro de la nota (grupo de plantillas y "Borrar todas").
+const confirmBox = createConfirm()
 const progressView = createProgress({
-  onSetAllDone: (done) => store.setAllDone(activeDay, done),
+  onSetAllDone: (done) => {
+    if (view.kind === 'day') store.setAllDone(view.day, done)
+  },
   onToggleAlerts: (on) => {
     hourAlerts = on
     window.stickyApi.setHourAlerts(on).catch(logWindowError('guardar el aviso por hora'))
     // Vista previa: al encender suena el mp3 una vez (sin toast).
     if (on) playAlert()
+  },
+  // "Borrar todas" (SPEC 12): todas las tareas del día activo, tras confirmar.
+  onDeleteAll: (opener) => {
+    if (view.kind !== 'day') return
+    const day = view.day
+    const count = tasksOf(store.getNote(), day).length
+    if (count === 0) return
+    confirmBox.ask(deleteAllText(count, day, today()), opener, () => store.deleteAllTasks(day))
   }
 })
-const taskList = createTaskList({
-  onAdd: (text, hour) => store.addTask(activeDay, text, hour),
+/** Acciones por id de una lista de tareas: valen igual para un día que para un grupo. */
+const taskHandlers: TemplateTaskHandlers = {
   currentHour: () => clock.now().getHours(),
   onSetTaskHour: (taskId, hour) => store.setTaskHour(taskId, hour),
   onToggleTask: (id) => store.toggleTask(id),
@@ -148,6 +172,32 @@ const taskList = createTaskList({
   onMoveSubtask: (taskId, subtaskId, toIndex) => store.moveSubtask(taskId, subtaskId, toIndex),
   onMoveSubtaskToTask: (fromTaskId, subtaskId, toTaskId, toIndex) =>
     store.moveSubtaskToTask(fromTaskId, subtaskId, toTaskId, toIndex)
+}
+
+// Lista del día.
+const taskList = createTaskList({
+  ...taskHandlers,
+  onAdd: (text, hour) => view.kind === 'day' && store.addTask(view.day, text, hour)
+})
+
+// Plantillas (SPEC 12): grupos apilados y plegables, en el sitio de la lista del día.
+const templateList = createTemplateList({
+  task: taskHandlers,
+  onAddTask: (groupId, text, hour) => store.addTemplateTask(groupId, text, hour),
+  onToggleCollapsed: (groupId) => store.toggleTemplateGroupCollapsed(groupId),
+  onRenameGroup: (groupId, name) => store.renameTemplateGroup(groupId, name),
+  onDeleteGroup: (groupId) => store.deleteTemplateGroup(groupId),
+  confirm: (text, opener, onConfirm) => confirmBox.ask(text, opener, onConfirm),
+  onMoveGroup: (groupId, toIndex) => store.moveTemplateGroup(groupId, toIndex),
+  // Copia al final de Hoy y cambia a Hoy para ver el resultado.
+  onCopyToToday: (groupId) => {
+    if (store.copyTemplateToToday(groupId)) selectDay(today())
+  },
+  // Al final, desplegado y a la vista (un nombre vacío no crea nada).
+  onCreateGroup: (name) => {
+    const id = store.addTemplateGroup(name)
+    if (id !== null) templateList.reveal(id)
+  }
 })
 
 // "Traer tareas de ayer" (SPEC 07): vive dentro de la lista, tras la fila de nueva tarea.
@@ -167,22 +217,40 @@ note.append(
   header.dayRow,
   ...progressView.elements,
   taskList.element,
+  templateList.element,
   footer.element,
   ...resizeHandles.elements,
-  about.element
+  about.element,
+  confirmBox.element
 )
 document.getElementById('app')!.append(note)
 
 function render(current: Note): void {
   const todayKey = today()
-  header.setDays(addDays(todayKey, -1), todayKey, addDays(todayKey, 1), activeDay)
-  header.setDate(shortDateLabel(dayDate(activeDay)))
-  const tasks = tasksOf(current, activeDay)
+  const day = view.kind === 'day' ? view.day : null
+  header.setDays(addDays(todayKey, -1), todayKey, addDays(todayKey, 1), day)
+  // Plantillas no es un día: la cabecera muestra la fecha de hoy.
+  header.setDate(shortDateLabel(dayDate(day ?? todayKey)))
+  // Las plantillas no tienen progreso: el bloque (anillo, conteo, "Marcar todas", aviso) se oculta.
+  for (const element of progressView.elements) element.hidden = day === null
+
+  // Plantillas y la lista del día ocupan el mismo sitio: se ve una u otra.
+  taskList.element.hidden = day === null
+  templateList.element.hidden = day !== null
+  // Se pintan aunque estén ocultas: así no se pierde el estado de edición al cambiar de pestaña.
+  templateList.render(templateGroups(current))
+
+  if (day === null) {
+    carryOver.setVisible(false)
+    return
+  }
+
+  const tasks = tasksOf(current, day)
   taskList.render(tasks)
   const { done, total, percent } = progress(tasks)
   progressView.update(done, total, percent)
   // Solo en Hoy, con Hoy vacío, sin uso previo hoy y con un día de origen.
-  carryOver.setVisible(activeDay === todayKey && store.canCarryOver())
+  carryOver.setVisible(day === todayKey && store.canCarryOver())
 }
 
 store.subscribe(render)
@@ -206,8 +274,11 @@ function onMidnight(): void {
   const previous = currentDay
   currentDay = today()
   if (currentDay !== previous) {
-    // Si se veía el día que acaba de terminar o Mañana, pasa a Hoy. Un día del historial se queda.
-    if (activeDay === previous || activeDay === addDays(previous, 1)) activeDay = currentDay
+    // Si se veía el día que acaba de terminar o Mañana, pasa a Hoy. Un día del historial se queda,
+    // y Plantillas también (no es un día, SPEC 12).
+    if (view.kind === 'day' && (view.day === previous || view.day === addDays(previous, 1))) {
+      view = { kind: 'day', day: currentDay }
+    }
     store.rollOver()
     // Refresca etiquetas y pestañas aunque la rotación no haya cambiado la nota.
     render(store.getNote())

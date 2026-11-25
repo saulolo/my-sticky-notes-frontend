@@ -20,8 +20,8 @@ export interface AddRowView {
 
 /**
  * Fila para añadir tareas. Oculta por defecto: la abre el "+" de la cabecera.
- * Enter crea la tarea y deja el foco en la siguiente; perder el foco o Esc la ocultan
- * y descartan lo escrito sin Enter.
+ * Enter crea la tarea y deja el foco en la siguiente. Perder el foco crea la tarea con lo
+ * escrito (hora no válida = hora actual) y oculta la fila; Esc la oculta y descarta lo escrito.
  */
 export function createAddRow({ onAdd, currentHour }: AddRowHandlers): AddRowView {
   const row = el(`
@@ -79,10 +79,13 @@ export function createAddRow({ onAdd, currentHour }: AddRowHandlers): AddRowView
       }
     })
   }
-  // El foco sale de la fila (clic fuera, otra ventana): se oculta.
+  // El foco sale de la fila (clic fuera, otra ventana): crea la tarea con lo escrito (SPEC 12) y
+  // se oculta. Hora vacía o no válida = hora actual. Esc ya vació los campos al cerrar: no crea nada.
   row.addEventListener('focusout', (event) => {
     const next = event.relatedTarget as Node | null
-    if (!next || !row.contains(next)) close()
+    if (next && row.contains(next)) return
+    if (input.value.trim()) onAdd(input.value, parseHour(hourInput.value) ?? undefined)
+    close()
   })
   hourInput.addEventListener('input', () => hourInput.classList.remove('is-invalid'))
   row.addEventListener('focusin', refreshPlaceholder)
