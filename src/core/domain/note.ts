@@ -20,15 +20,32 @@ export interface Task {
   createdAt: string
 }
 
+/** Largo máximo del nombre de un grupo de plantillas (SPEC 12). */
+export const TEMPLATE_NAME_MAX = 40
+
+/** Grupo de plantillas (SPEC 12): no es un día, no tiene fecha ni progreso. */
+export interface TemplateGroup {
+  /** Único entre grupos. */
+  id: string
+  /** No vacío, sin espacios en los extremos, máx. `TEMPLATE_NAME_MAX` caracteres. */
+  name: string
+  /** Mismo formato que las tareas de un día; `done` siempre false (la UI no lo cambia). */
+  tasks: Task[]
+  /** Grupo plegado (solo se ve la cabecera). Ausente = desplegado. */
+  collapsed?: boolean
+}
+
 export interface Note {
   /**
    * Una lista por día. Día sin entrada = lista vacía. Dentro de cada día, orden de inserción
    * (las nuevas van al final); la UI las muestra ordenadas por hora. Los `id` son únicos en
-   * toda la nota.
+   * toda la nota, incluidas las plantillas.
    */
   days: Record<DayKey, Task[]>
   /** Día (local `YYYY-MM-DD`) en que se usó "Traer tareas de ayer". Ausente = nunca. */
   lastCarryOver?: DayKey
+  /** Grupos de plantillas en el orden del usuario (SPEC 12). Ausente = ninguno. */
+  templates?: TemplateGroup[]
 }
 
 /** Hora válida de una tarea: entero de 0 a 23. */

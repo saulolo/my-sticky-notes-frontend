@@ -131,6 +131,11 @@ export class NoteStore {
     return this.change((n) => ops.setAllDone(n, day, done))
   }
 
+  /** Borra todas las tareas del día `day` (SPEC 12). */
+  deleteAllTasks(day: DayKey): boolean {
+    return this.change((n) => ops.deleteAllTasks(n, day))
+  }
+
   toggleSubtasksCollapsed(taskId: string): boolean {
     return this.change((n) => ops.toggleSubtasksCollapsed(n, taskId))
   }
@@ -153,6 +158,52 @@ export class NoteStore {
 
   deleteSubtask(taskId: string, subtaskId: string): boolean {
     return this.change((n) => ops.deleteSubtask(n, taskId, subtaskId))
+  }
+
+  // --- Plantillas (SPEC 12) ---
+
+  /** Crea un grupo vacío al final. Devuelve su id, o `null` si el nombre queda vacío. */
+  addTemplateGroup(name: string): string | null {
+    const id = this.deps.newId()
+    return this.change((n) => ops.addTemplateGroup(n, name, id)) ? id : null
+  }
+
+  renameTemplateGroup(groupId: string, name: string): boolean {
+    return this.change((n) => ops.renameTemplateGroup(n, groupId, name))
+  }
+
+  deleteTemplateGroup(groupId: string): boolean {
+    return this.change((n) => ops.deleteTemplateGroup(n, groupId))
+  }
+
+  moveTemplateGroup(groupId: string, toIndex: number): boolean {
+    return this.change((n) => ops.moveTemplateGroup(n, groupId, toIndex))
+  }
+
+  /** Pliega o despliega el grupo (se guarda en `note.json`). */
+  toggleTemplateGroupCollapsed(groupId: string): boolean {
+    return this.change((n) => ops.toggleTemplateGroupCollapsed(n, groupId))
+  }
+
+  /** Añade al final del grupo. `hour` opcional (entero 0–23); sin ella se usa la hora del Clock. */
+  addTemplateTask(groupId: string, text: string, hour?: number): boolean {
+    return this.change((n) =>
+      ops.addTemplateTask(
+        n,
+        groupId,
+        text,
+        { id: this.deps.newId(), now: this.deps.clock.now() },
+        hour
+      )
+    )
+  }
+
+  /** Copia las tareas del grupo al final de Hoy (fecha del Clock), sin marcar y con ids nuevos. */
+  copyTemplateToToday(groupId: string): boolean {
+    const now = this.deps.clock.now()
+    return this.change((n) =>
+      ops.copyTemplateToDay(n, groupId, dayKey(now), this.deps.newId, now.toISOString())
+    )
   }
 
   /** Aplica un comando del usuario: actualiza el estado y programa el autoguardado. */

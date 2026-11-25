@@ -10,6 +10,16 @@ export interface TaskListView {
   openAddRow(): void
 }
 
+export interface TaskListOptions {
+  /** Lista de un grupo de plantillas (SPEC 12): filas sin check y chip de subtareas con solo el total. */
+  template?: boolean
+  /**
+   * Lista incrustada (cada grupo de Plantillas, SPEC 12): sin scroll propio. El autodesplazamiento
+   * del arrastre mueve este contenedor.
+   */
+  scrollContainer?: () => HTMLElement
+}
+
 export interface TaskListHandlers {
   onAdd(text: string, hour: number | undefined): boolean
   currentHour(): number
@@ -71,13 +81,21 @@ interface EditTarget {
   subtaskId: string | null
 }
 
-/** Botón para contraer/expandir las subtareas: chevron + `hechas/total`. */
-function subToggleHtml(task: Task): string {
+/**
+ * Botón para contraer/expandir las subtareas: chevron + `hechas/total`. En una plantilla
+ * (SPEC 12) solo muestra el total, sin relleno.
+ */
+function subToggleHtml(task: Task, template: boolean): string {
   const total = task.subtasks.length
   if (total === 0) return ''
-  const done = task.subtasks.filter((sub) => sub.done).length
   const collapsed = task.collapsed === true
-  const label = `${collapsed ? 'Expandir' : 'Contraer'} subtareas (${done} de ${total} hechas)`
+  const action = `${collapsed ? 'Expandir' : 'Contraer'} subtareas`
+  if (template) {
+    const label = `${action} (${total})`
+    return `<button class="sub-toggle${collapsed ? ' is-collapsed' : ''}" type="button" aria-expanded="${!collapsed}" aria-label="${label}" title="${label}">${icons.chevronDown(10)}<span>${total}</span></button>`
+  }
+  const done = task.subtasks.filter((sub) => sub.done).length
+  const label = `${action} (${done} de ${total} hechas)`
   const cls = `sub-toggle${collapsed ? ' is-collapsed' : ''}${done === total ? ' is-complete' : ''}`
   // `--sub-progress` = relleno del chip según las subtareas hechas.
   const progress = Math.round((done / total) * 100)
@@ -118,8 +136,15 @@ function actionsHtml(
     </span>`
 }
 
-export function createTaskList(handlers: TaskListHandlers): TaskListView {
+export function createTaskList(
+  handlers: TaskListHandlers,
+  options: TaskListOptions = {}
+): TaskListView {
   const element = el(`<div class="scroll"></div>`)
+  const templateMode = options.template === true
+  element.classList.toggle('is-template', templateMode)
+  // Incrustada: sin scroll propio; el arrastre se limita a la lista y desplaza el contenedor.
+  element.classList.toggle('is-embedded', options.scrollContainer !== undefined)
   const addRow = createAddRow({ onAdd: handlers.onAdd, currentHour: handlers.currentHour })
   element.append(addRow.element)
 
@@ -253,7 +278,7 @@ export function createTaskList(handlers: TaskListHandlers): TaskListView {
     const isEdit = isEditing(task.id, subtask.id)
     const row = el(`
       <div class="row sub-row">
-        <button class="check sm${subtask.done ? ' is-on' : ''}" type="button" aria-label="Marcar subtarea" aria-pressed="${subtask.done}">${subtask.done ? icons.check(10) : ''}</button>
+        ${templateMode ? '' : `<button class="check sm${subtask.done ? ' is-on' : ''}" type="button" aria-label="Marcar subtarea" aria-pressed="${subtask.done}">${subtask.done ? icons.check(10) : ''}</button>`}
         <span class="txt sub-text${subtask.done ? ' is-done' : ''}"></span>
         ${isEdit ? '' : actionsHtml('delete-sub', 'Eliminar subtarea', true)}
       </div>`)
@@ -277,10 +302,10 @@ export function createTaskList(handlers: TaskListHandlers): TaskListView {
     const row = el(`
       <div class="task">
         <div class="row task-row${task.subtasks.length > 0 ? ' has-subtasks' : ''}">
-          <button class="check${task.done ? ' is-on' : ''}" type="button" aria-label="Marcar tarea" aria-pressed="${task.done}">${task.done ? icons.check(12) : ''}</button>
+          ${templateMode ? '' : `<button class="check${task.done ? ' is-on' : ''}" type="button" aria-label="Marcar tarea" aria-pressed="${task.done}">${task.done ? icons.check(12) : ''}</button>`}
           <span class="txt time${doneCls}"></span>
           <span class="txt task-text${doneCls}"></span>
-          ${subToggleHtml(task)}
+          ${subToggleHtml(task, templateMode)}
           ${
             isEdit
               ? ''
@@ -590,10 +615,14 @@ export function createTaskList(handlers: TaskListHandlers): TaskListView {
     return block
   }
 
-  /** Mientras se arrastra cerca del borde de la lista, la desplaza sola. */
+  /**
+   * Mientras se arrastra cerca del borde de la zona con scroll, la desplaza sola. Incrustada, esa
+   * zona es el contenedor de Plantillas, no la lista.
+   */
   function autoScrollTick(): void {
     if (!drag?.active) return
-    const list = element.getBoundingClientRect()
+    const scroller = options.scrollContainer?.() ?? element
+    const list = scroller.getBoundingClientRect()
     const { clientY } = drag
     let step = 0
     if (clientY < list.top + EDGE_ZONE) {
@@ -602,9 +631,9 @@ export function createTaskList(handlers: TaskListHandlers): TaskListView {
       step = Math.min(1, (clientY - (list.bottom - EDGE_ZONE)) / EDGE_ZONE) * MAX_SCROLL_STEP
     }
     if (step !== 0) {
-      const previous = element.scrollTop
-      element.scrollTop += Math.sign(step) * Math.ceil(Math.abs(step))
-      if (element.scrollTop !== previous) updateDrag()
+      const previous = scroller.scrollTop
+      scroller.scrollTop += Math.sign(step) * Math.ceil(Math.abs(step))
+      if (scroller.scrollTop !== previous) updateDrag()
     }
     drag.raf = requestAnimationFrame(autoScrollTick)
   }
@@ -760,5 +789,9 @@ export function createTaskList(handlers: TaskListHandlers): TaskListView {
     focusInput('.edit-in')
   })
 
-  return { element, render, openAddRow: addRow.open }
+  return {
+    element,
+    render,
+    openAddRow: addRow.open
+  }
 }

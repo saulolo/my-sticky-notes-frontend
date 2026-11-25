@@ -1,5 +1,12 @@
 import { addDays, HISTORY_DAYS, type DayKey } from './day'
-import { isValidHour, type Note, type Subtask, type Task } from './note'
+import {
+  isValidHour,
+  TEMPLATE_NAME_MAX,
+  type Note,
+  type Subtask,
+  type Task,
+  type TemplateGroup
+} from './note'
 
 // Funciones puras e inmutables: reciben un Note y devuelven uno nuevo.
 // Si la operación no cambia nada (texto vacío, id inexistente) devuelven el mismo Note.
@@ -28,27 +35,68 @@ export function tasksOf(note: Note, day: DayKey): Task[] {
   return note.days[day] ?? []
 }
 
-/** Día que contiene la tarea `taskId` (los ids son únicos en toda la nota). */
-function findDay(note: Note, taskId: string): DayKey | undefined {
-  return Object.keys(note.days).find((day) => note.days[day].some((t) => t.id === taskId))
+/** Lista que contiene una tarea: la de un día o la de un grupo de plantillas (SPEC 12). */
+type TaskListRef = { kind: 'day'; day: DayKey } | { kind: 'group'; groupId: string }
+
+interface Located {
+  ref: TaskListRef
+  tasks: Task[]
 }
+
+/** Grupos de plantillas en el orden del usuario (SPEC 12). */
+export function templateGroups(note: Note): TemplateGroup[] {
+  return note.templates ?? []
+}
+
+/**
+ * Lista que contiene la tarea `taskId` (los ids son únicos en toda la nota, incluidas las
+ * plantillas). Con `daysOnly` no se buscan en los grupos.
+ */
+function locate(note: Note, taskId: string, daysOnly = false): Located | undefined {
+  const has = (tasks: Task[]): boolean => tasks.some((t) => t.id === taskId)
+  const day = Object.keys(note.days).find((d) => has(note.days[d]))
+  if (day !== undefined) return { ref: { kind: 'day', day }, tasks: note.days[day] }
+  if (daysOnly) return undefined
+  const group = templateGroups(note).find((g) => has(g.tasks))
+  return group && { ref: { kind: 'group', groupId: group.id }, tasks: group.tasks }
+}
+
+const sameList = (a: TaskListRef, b: TaskListRef): boolean =>
+  a.kind === 'day'
+    ? b.kind === 'day' && a.day === b.day
+    : b.kind === 'group' && a.groupId === b.groupId
 
 function withDay(note: Note, day: DayKey, tasks: Task[]): Note {
   return { ...note, days: { ...note.days, [day]: tasks } }
 }
 
-/** Busca la tarea por id en todos los días y la reemplaza por `fn(tarea)`. */
-function mapTask(note: Note, taskId: string, fn: (task: Task) => Task): Note {
-  const day = findDay(note, taskId)
-  if (day === undefined) return note
-  const tasks = note.days[day]
-  const current = tasks.find((t) => t.id === taskId)!
+function withGroup(note: Note, groupId: string, fn: (group: TemplateGroup) => TemplateGroup): Note {
+  return {
+    ...note,
+    templates: templateGroups(note).map((g) => (g.id === groupId ? fn(g) : g))
+  }
+}
+
+function withList(note: Note, ref: TaskListRef, tasks: Task[]): Note {
+  return ref.kind === 'day'
+    ? withDay(note, ref.day, tasks)
+    : withGroup(note, ref.groupId, (g) => ({ ...g, tasks }))
+}
+
+/**
+ * Busca la tarea por id (en días y grupos; solo días con `daysOnly`) y la reemplaza por
+ * `fn(tarea)`.
+ */
+function mapTask(note: Note, taskId: string, fn: (task: Task) => Task, daysOnly = false): Note {
+  const found = locate(note, taskId, daysOnly)
+  if (found === undefined) return note
+  const current = found.tasks.find((t) => t.id === taskId)!
   const updated = fn(current)
   if (updated === current) return note
-  return withDay(
+  return withList(
     note,
-    day,
-    tasks.map((t) => (t.id === taskId ? updated : t))
+    found.ref,
+    found.tasks.map((t) => (t.id === taskId ? updated : t))
   )
 }
 
@@ -56,12 +104,18 @@ function mapSubtask(
   note: Note,
   taskId: string,
   subtaskId: string,
-  fn: (subtask: Subtask) => Subtask
+  fn: (subtask: Subtask) => Subtask,
+  daysOnly = false
 ): Note {
-  return mapTask(note, taskId, (task) => {
-    if (!task.subtasks.some((s) => s.id === subtaskId)) return task
-    return { ...task, subtasks: task.subtasks.map((s) => (s.id === subtaskId ? fn(s) : s)) }
-  })
+  return mapTask(
+    note,
+    taskId,
+    (task) => {
+      if (!task.subtasks.some((s) => s.id === subtaskId)) return task
+      return { ...task, subtasks: task.subtasks.map((s) => (s.id === subtaskId ? fn(s) : s)) }
+    },
+    daysOnly
+  )
 }
 
 /**
@@ -76,10 +130,16 @@ export function addTask(
   { id, now }: NewItemContext,
   hour?: number
 ): Note {
+  const task = newTask(text, { id, now }, hour)
+  return task ? withDay(note, day, [...tasksOf(note, day), task]) : note
+}
+
+/** Tarea nueva sin marcar; `null` si el texto queda vacío o la hora es inválida. */
+function newTask(text: string, { id, now }: NewItemContext, hour?: number): Task | null {
   const trimmed = clean(text)
-  if (!trimmed) return note
-  if (hour !== undefined && !isValidHour(hour)) return note
-  const task: Task = {
+  if (!trimmed) return null
+  if (hour !== undefined && !isValidHour(hour)) return null
+  return {
     id,
     hour: hour ?? now.getHours(),
     text: trimmed,
@@ -87,7 +147,6 @@ export function addTask(
     subtasks: [],
     createdAt: now.toISOString()
   }
-  return withDay(note, day, [...tasksOf(note, day), task])
 }
 
 export function addSubtask(note: Note, taskId: string, text: string, id: string): Note {
@@ -108,8 +167,9 @@ export function toggleSubtasksCollapsed(note: Note, taskId: string): Note {
   )
 }
 
+/** Solo tareas de días: las plantillas no se marcan (SPEC 12). */
 export function toggleTask(note: Note, taskId: string): Note {
-  return mapTask(note, taskId, (task) => ({ ...task, done: !task.done }))
+  return mapTask(note, taskId, (task) => ({ ...task, done: !task.done }), true)
 }
 
 /**
@@ -131,8 +191,18 @@ export function setAllDone(note: Note, day: DayKey, done: boolean): Note {
   )
 }
 
+/**
+ * Borra todas las tareas del día (hechas o no, con sus subtareas) y deja la lista vacía
+ * (SPEC 12). Mismo objeto si el día no tiene tareas.
+ */
+export function deleteAllTasks(note: Note, day: DayKey): Note {
+  if (tasksOf(note, day).length === 0) return note
+  return withDay(note, day, [])
+}
+
+/** Solo subtareas de días: las plantillas no se marcan (SPEC 12). */
 export function toggleSubtask(note: Note, taskId: string, subtaskId: string): Note {
-  return mapSubtask(note, taskId, subtaskId, (sub) => ({ ...sub, done: !sub.done }))
+  return mapSubtask(note, taskId, subtaskId, (sub) => ({ ...sub, done: !sub.done }), true)
 }
 
 export function editTask(note: Note, taskId: string, text: string): Note {
@@ -158,22 +228,22 @@ export function setTaskHour(note: Note, taskId: string, hour: number): Note {
 }
 
 /**
- * Mueve la tarea dentro de la lista de su día a la posición final `toIndex` (0 = primera).
- * `toIndex` se limita a `[0, n − 1]`. Devuelve el mismo `Note` si el id no existe, `toIndex`
- * no es un entero o la tarea ya está en esa posición.
+ * Mueve la tarea dentro de su lista (la de su día o la de su grupo) a la posición final
+ * `toIndex` (0 = primera). `toIndex` se limita a `[0, n − 1]`. Devuelve el mismo `Note` si el
+ * id no existe, `toIndex` no es un entero o la tarea ya está en esa posición.
  */
 export function moveTask(note: Note, taskId: string, toIndex: number): Note {
   if (!Number.isInteger(toIndex)) return note
-  const day = findDay(note, taskId)
-  if (day === undefined) return note
-  const tasks = note.days[day]
+  const found = locate(note, taskId)
+  if (found === undefined) return note
+  const { tasks } = found
   const from = tasks.findIndex((t) => t.id === taskId)
   const to = Math.min(Math.max(toIndex, 0), tasks.length - 1)
   if (from === to) return note
   const next = [...tasks]
   const [task] = next.splice(from, 1)
   next.splice(to, 0, task)
-  return withDay(note, day, next)
+  return withList(note, found.ref, next)
 }
 
 /**
@@ -196,10 +266,10 @@ export function moveSubtask(note: Note, taskId: string, subtaskId: string, toInd
 }
 
 /**
- * Pasa la subtarea de `fromTaskId` a `toTaskId` (mismo día) en la posición `toIndex` (limitada a
- * `[0, n]`, con n = subtareas del destino). Conserva id, texto y `done`; el destino queda
- * expandido. Mismo `Note` si algo no existe, `toIndex` no es entero, es la misma tarea
- * (para eso está `moveSubtask`) o las tareas están en días distintos.
+ * Pasa la subtarea de `fromTaskId` a `toTaskId` (misma lista: mismo día o mismo grupo) en la
+ * posición `toIndex` (limitada a `[0, n]`, con n = subtareas del destino). Conserva id, texto y
+ * `done`; el destino queda expandido. Mismo `Note` si algo no existe, `toIndex` no es entero, es
+ * la misma tarea (para eso está `moveSubtask`) o las tareas están en listas distintas.
  */
 export function moveSubtaskToTask(
   note: Note,
@@ -209,15 +279,18 @@ export function moveSubtaskToTask(
   toIndex: number
 ): Note {
   if (!Number.isInteger(toIndex) || fromTaskId === toTaskId) return note
-  const day = findDay(note, fromTaskId)
-  if (day === undefined || findDay(note, toTaskId) !== day) return note
-  const tasks = note.days[day]
+  const source = locate(note, fromTaskId)
+  const target = locate(note, toTaskId)
+  if (source === undefined || target === undefined || !sameList(source.ref, target.ref)) {
+    return note
+  }
+  const { tasks } = source
   const from = tasks.find((t) => t.id === fromTaskId)!
   const sub = from.subtasks.find((s) => s.id === subtaskId)
   if (!sub) return note
-  return withDay(
+  return withList(
     note,
-    day,
+    source.ref,
     tasks.map((t) => {
       if (t.id === fromTaskId) {
         return { ...t, subtasks: t.subtasks.filter((s) => s.id !== subtaskId) }
@@ -245,12 +318,12 @@ export function tasksByHour(tasks: readonly Task[]): Task[] {
 
 /** Eliminar una tarea elimina también sus subtareas. */
 export function deleteTask(note: Note, taskId: string): Note {
-  const day = findDay(note, taskId)
-  if (day === undefined) return note
-  return withDay(
+  const found = locate(note, taskId)
+  if (found === undefined) return note
+  return withList(
     note,
-    day,
-    note.days[day].filter((t) => t.id !== taskId)
+    found.ref,
+    found.tasks.filter((t) => t.id !== taskId)
   )
 }
 
@@ -322,6 +395,109 @@ export function carryOver(note: Note, today: DayKey, newId: () => string): Note 
     subtasks: task.subtasks.map((sub) => ({ ...sub, id: newId(), done: false }))
   }))
   return { ...withDay(note, today, [...tasksOf(note, today), ...copies]), lastCarryOver: today }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Plantillas (SPEC 12)
+// ---------------------------------------------------------------------------------------------
+
+/** Nombre de grupo recortado y cortado a `TEMPLATE_NAME_MAX` caracteres ('' = inválido). */
+function cleanGroupName(name: string): string {
+  return name.trim().slice(0, TEMPLATE_NAME_MAX).trim()
+}
+
+const findGroup = (note: Note, groupId: string): TemplateGroup | undefined =>
+  templateGroups(note).find((g) => g.id === groupId)
+
+/** Añade un grupo vacío al final. Mismo `Note` si el nombre limpio es vacío. */
+export function addTemplateGroup(note: Note, name: string, id: string): Note {
+  const cleaned = cleanGroupName(name)
+  if (!cleaned) return note
+  return { ...note, templates: [...templateGroups(note), { id, name: cleaned, tasks: [] }] }
+}
+
+/** Mismo `Note` si el id no existe, el nombre limpio es vacío o no cambia. */
+export function renameTemplateGroup(note: Note, groupId: string, name: string): Note {
+  const cleaned = cleanGroupName(name)
+  const group = findGroup(note, groupId)
+  if (!cleaned || !group || group.name === cleaned) return note
+  return withGroup(note, groupId, (g) => ({ ...g, name: cleaned }))
+}
+
+/** Borra el grupo y sus tareas. Mismo `Note` si el id no existe. */
+export function deleteTemplateGroup(note: Note, groupId: string): Note {
+  if (!findGroup(note, groupId)) return note
+  return { ...note, templates: templateGroups(note).filter((g) => g.id !== groupId) }
+}
+
+/**
+ * Mueve el grupo a la posición final `toIndex` (limitada a `[0, n − 1]`). Mismo `Note` si el id
+ * no existe, `toIndex` no es un entero o el grupo ya está en esa posición.
+ */
+export function moveTemplateGroup(note: Note, groupId: string, toIndex: number): Note {
+  if (!Number.isInteger(toIndex)) return note
+  const groups = templateGroups(note)
+  const from = groups.findIndex((g) => g.id === groupId)
+  if (from === -1) return note
+  const to = Math.min(Math.max(toIndex, 0), groups.length - 1)
+  if (from === to) return note
+  const next = [...groups]
+  const [group] = next.splice(from, 1)
+  next.splice(to, 0, group)
+  return { ...note, templates: next }
+}
+
+/**
+ * Añade una tarea sin marcar al final del grupo. Mismas reglas que `addTask` (texto vacío u hora
+ * inválida no crean nada); mismo `Note` si el grupo no existe. Un grupo plegado se despliega para
+ * que la tarea nueva se vea.
+ */
+export function addTemplateTask(
+  note: Note,
+  groupId: string,
+  text: string,
+  ctx: NewItemContext,
+  hour?: number
+): Note {
+  if (!findGroup(note, groupId)) return note
+  const task = newTask(text, ctx, hour)
+  if (!task) return note
+  return withGroup(note, groupId, (g) => ({
+    ...g,
+    tasks: [...g.tasks, task],
+    ...(g.collapsed ? { collapsed: false } : {})
+  }))
+}
+
+/** Pliega o despliega el grupo. Mismo `Note` si el id no existe. */
+export function toggleTemplateGroupCollapsed(note: Note, groupId: string): Note {
+  if (!findGroup(note, groupId)) return note
+  return withGroup(note, groupId, (g) => ({ ...g, collapsed: !g.collapsed }))
+}
+
+/**
+ * Copia todas las tareas del grupo, en su orden, al final de la lista de `day` (aunque ya tenga
+ * tareas). Cada copia y cada subtarea tiene id nuevo y `done: false`; conservan texto, hora y
+ * `collapsed`; `createdAt` = `now`. El grupo no cambia. Mismo `Note` si el grupo no existe o no
+ * tiene tareas.
+ */
+export function copyTemplateToDay(
+  note: Note,
+  groupId: string,
+  day: DayKey,
+  newId: () => string,
+  now: string
+): Note {
+  const group = findGroup(note, groupId)
+  if (!group || group.tasks.length === 0) return note
+  const copies = group.tasks.map((task): Task => ({
+    ...task,
+    id: newId(),
+    done: false,
+    createdAt: now,
+    subtasks: task.subtasks.map((sub) => ({ ...sub, id: newId(), done: false }))
+  }))
+  return withDay(note, day, [...tasksOf(note, day), ...copies])
 }
 
 /** Cuenta tareas y subtareas de una lista: M = todas, N = las que tienen `done`. */

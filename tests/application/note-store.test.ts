@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from 'vitest'
 import { InMemoryNoteRepository } from '../../src/core/application/in-memory-note-repository'
 import { NoteStore } from '../../src/core/application/note-store'
 import type { Clock } from '../../src/core/application/ports'
-import { addTask, tasksOf } from '../../src/core/domain/note-operations'
-import { createEmptyNote } from '../../src/core/domain/note'
+import { addTask, tasksOf, templateGroups } from '../../src/core/domain/note-operations'
+import { createEmptyNote, type TemplateGroup } from '../../src/core/domain/note'
 
 const D = '2026-11-12'
 
@@ -33,6 +33,26 @@ describe('NoteStore', () => {
     expect(store.setAllDone(D, true)).toBe(false)
     expect(store.setAllDone(D, false)).toBe(true)
     expect(tasksOf(store.getNote(), D).some((t) => t.done)).toBe(false)
+  })
+
+  it('deleteAllTasks vacía el día, devuelve false si ya estaba vacío y guarda (SPEC 12)', async () => {
+    const repository = new InMemoryNoteRepository()
+    let n = 0
+    const store = new NoteStore({
+      repository,
+      clock: { now: () => new Date(2026, 10, 12, 13) },
+      newId: () => `id${++n}`,
+      saveDebounceMs: 0
+    })
+    store.addTask(D, 'A')
+    store.addTask(D, 'B')
+    store.toggleTask('id1')
+    expect(store.deleteAllTasks(D)).toBe(true)
+    expect(tasksOf(store.getNote(), D)).toEqual([])
+    expect(store.deleteAllTasks(D)).toBe(false)
+    expect(store.deleteAllTasks('2026-11-20')).toBe(false)
+    await store.flush()
+    expect(tasksOf(await repository.load(), D)).toEqual([])
   })
 
   it('arranca con la nota por defecto', () => {
@@ -278,5 +298,98 @@ describe('NoteStore', () => {
     })
     await old.load()
     expect(old.getNote().days[D]).toBeUndefined()
+  })
+})
+
+describe('NoteStore plantillas (SPEC 12)', () => {
+  const groups = (store: NoteStore): TemplateGroup[] => templateGroups(store.getNote())
+
+  it('addTemplateGroup devuelve el id creado, o null con nombre vacío', () => {
+    const { store } = setup()
+    expect(store.addTemplateGroup('  Empresa A ')).toBe('id1')
+    expect(groups(store)).toEqual([{ id: 'id1', name: 'Empresa A', tasks: [] }])
+    expect(store.addTemplateGroup('   ')).toBeNull()
+    expect(groups(store)).toHaveLength(1)
+  })
+
+  it('renombrar, mover y borrar devuelven si cambió algo', () => {
+    const { store } = setup()
+    const a = store.addTemplateGroup('A')!
+    const b = store.addTemplateGroup('B')!
+    expect(store.renameTemplateGroup(a, 'A2')).toBe(true)
+    expect(store.renameTemplateGroup(a, 'A2')).toBe(false)
+    expect(store.moveTemplateGroup(b, 0)).toBe(true)
+    expect(store.moveTemplateGroup(b, 0)).toBe(false)
+    expect(groups(store).map((g) => g.name)).toEqual(['B', 'A2'])
+    expect(store.deleteTemplateGroup(b)).toBe(true)
+    expect(store.deleteTemplateGroup(b)).toBe(false)
+    expect(groups(store).map((g) => g.id)).toEqual([a])
+  })
+
+  it('toggleTemplateGroupCollapsed pliega y despliega; false con id desconocido', () => {
+    const { store } = setup()
+    const g = store.addTemplateGroup('A')!
+    expect(store.toggleTemplateGroupCollapsed(g)).toBe(true)
+    expect(groups(store)[0].collapsed).toBe(true)
+    expect(store.toggleTemplateGroupCollapsed(g)).toBe(true)
+    expect(groups(store)[0].collapsed).toBe(false)
+    expect(store.toggleTemplateGroupCollapsed('zz')).toBe(false)
+  })
+
+  it('addTemplateTask usa la hora del Clock y un id generado', () => {
+    const { store } = setup(13)
+    const g = store.addTemplateGroup('A')!
+    expect(store.addTemplateTask(g, 'Correo')).toBe(true)
+    expect(store.addTemplateTask(g, 'Reunión', 16)).toBe(true)
+    expect(store.addTemplateTask('zz', 'x')).toBe(false)
+    expect(groups(store)[0].tasks.map((t) => [t.id, t.hour, t.text])).toEqual([
+      ['id2', 13, 'Correo'],
+      ['id3', 16, 'Reunión']
+    ])
+  })
+
+  it('copyTemplateToToday copia a Hoy (fecha del Clock) con createdAt = ahora', () => {
+    const { store, clock } = setup(13)
+    store.addTask(D, 'Ya estaba')
+    const g = store.addTemplateGroup('A')!
+    store.addTemplateTask(g, 'Correo', 9)
+    store.addSubtask(groups(store)[0].tasks[0].id, 'Bandeja')
+    clock.date = new Date(2026, 10, 12, 15, 0)
+    expect(store.copyTemplateToToday(g)).toBe(true)
+    const today = tasksOf(store.getNote(), D)
+    expect(today.map((t) => t.text)).toEqual(['Ya estaba', 'Correo'])
+    expect(today[1]).toMatchObject({
+      hour: 9,
+      done: false,
+      createdAt: clock.date.toISOString(),
+      subtasks: [{ text: 'Bandeja', done: false }]
+    })
+    expect(today[1].id).not.toBe(groups(store)[0].tasks[0].id)
+    expect(store.copyTemplateToToday(g)).toBe(true)
+    expect(tasksOf(store.getNote(), D)).toHaveLength(3)
+  })
+
+  it('copyTemplateToToday devuelve false con grupo vacío o inexistente', () => {
+    const { store } = setup()
+    const g = store.addTemplateGroup('A')!
+    expect(store.copyTemplateToToday(g)).toBe(false)
+    expect(store.copyTemplateToToday('zz')).toBe(false)
+  })
+
+  it('los cambios de plantillas se guardan', async () => {
+    const repository = new InMemoryNoteRepository()
+    const store = new NoteStore({
+      repository,
+      clock: { now: () => new Date(2026, 10, 12, 13) },
+      newId: (() => {
+        let n = 0
+        return () => `id${++n}`
+      })(),
+      saveDebounceMs: 0
+    })
+    const g = store.addTemplateGroup('A')!
+    store.addTemplateTask(g, 'Correo')
+    await store.flush()
+    expect(templateGroups(await repository.load())[0].tasks[0].text).toBe('Correo')
   })
 })

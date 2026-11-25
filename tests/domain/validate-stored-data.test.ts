@@ -18,7 +18,16 @@ function valid(): Record<string, unknown> {
   return {
     version: 3,
     note: { days: { '2026-11-14': [task()] } },
-    window: { pinned: false, collapsed: false, x: null, y: null, height: null, width: null, alwaysOnTop: false, hourAlerts: false }
+    window: {
+      pinned: false,
+      collapsed: false,
+      x: null,
+      y: null,
+      height: null,
+      width: null,
+      alwaysOnTop: false,
+      hourAlerts: false
+    }
   }
 }
 
@@ -123,6 +132,79 @@ describe('validateStoredData v3', () => {
     expect(validateStoredData(data, TODAY)).toBeNull()
   })
 
+  describe('templates (SPEC 12)', () => {
+    const group = (patch: Record<string, unknown> = {}): Record<string, unknown> => ({
+      id: 'g1',
+      name: 'Empresa A',
+      tasks: [task()],
+      ...patch
+    })
+
+    it('ausente es válido y no aparece en la nota', () => {
+      expect(validateStoredData(valid(), TODAY)?.note).not.toHaveProperty('templates')
+    })
+
+    it('acepta grupos válidos (también lista vacía y grupo sin tareas) y los devuelve', () => {
+      const data = valid()
+      const templates = [group(), group({ id: 'g2', name: 'B', tasks: [] })]
+      data.note = { days: {}, templates }
+      expect(validateStoredData(data, TODAY)?.note).toEqual({ days: {}, templates })
+      data.note = { days: {}, templates: [] }
+      expect(validateStoredData(data, TODAY)?.note).toEqual({ days: {}, templates: [] })
+    })
+
+    it('acepta un nombre de 40 caracteres', () => {
+      const data = valid()
+      data.note = { days: {}, templates: [group({ name: 'x'.repeat(40) })] }
+      expect(validateStoredData(data, TODAY)).not.toBeNull()
+    })
+
+    it('acepta collapsed booleano y lo conserva', () => {
+      const data = valid()
+      const templates = [group({ collapsed: true }), group({ id: 'g2', collapsed: false })]
+      data.note = { days: {}, templates }
+      expect(validateStoredData(data, TODAY)?.note.templates).toEqual(templates)
+    })
+
+    it('v2: conserva templates', () => {
+      const data = valid()
+      data.version = 2
+      data.note = { days: {}, templates: [group()] }
+      expect(validateStoredData(data, TODAY)?.note.templates).toEqual([group()])
+    })
+
+    it.each([
+      ['null', null],
+      ['un objeto', { g1: group() }],
+      ['un string', 'g1'],
+      ['un grupo null', [null]],
+      ['un grupo sin id', [group({ id: undefined })]],
+      ['un id vacío', [group({ id: '' })]],
+      ['un grupo sin nombre', [group({ name: undefined })]],
+      ['un nombre vacío', [group({ name: '' })]],
+      ['un nombre de solo espacios', [group({ name: '   ' })]],
+      ['un nombre con espacios en los extremos', [group({ name: ' A ' })]],
+      ['un nombre de 41 caracteres', [group({ name: 'x'.repeat(41) })]],
+      ['tasks ausente', [group({ tasks: undefined })]],
+      ['tasks no array', [group({ tasks: {} })]],
+      ['una tarea inválida', [group({ tasks: [{ ...task(), hour: 24 }] })]],
+      ['collapsed null', [group({ collapsed: null })]],
+      ['collapsed no booleano', [group({ collapsed: 'sí' })]],
+      [
+        'una subtarea inválida',
+        [group({ tasks: [{ ...task(), subtasks: [{ id: 's', text: '' }] }] })]
+      ]
+    ])('rechaza templates con %s', (_name, value) => {
+      const data = valid()
+      data.note = { days: {}, templates: value }
+      expect(validateStoredData(data, TODAY)).toBeNull()
+    })
+
+    it('v1 migra sin templates', () => {
+      expect(validateStoredData(validV1(), TODAY)?.note).not.toHaveProperty('templates')
+    })
+  })
+
   it('acepta nota sin días, días vacíos y posición numérica', () => {
     const data = valid()
     data.note = { days: {} }
@@ -217,7 +299,8 @@ describe('validateStoredData alto', () => {
       y: 20,
       height: null,
       width: null,
-      alwaysOnTop: false, hourAlerts: false
+      alwaysOnTop: false,
+      hourAlerts: false
     })
   })
 
@@ -231,7 +314,8 @@ describe('validateStoredData alto', () => {
       y: 20,
       height: 600,
       width: null,
-      alwaysOnTop: false, hourAlerts: false
+      alwaysOnTop: false,
+      hourAlerts: false
     })
   })
 
@@ -246,9 +330,10 @@ describe('validateStoredData alto', () => {
   })
 
   it('conserva alwaysOnTop guardado', () => {
-    expect(validateStoredData(withWindow({ alwaysOnTop: true, hourAlerts: false }), TODAY)?.window.alwaysOnTop).toBe(
-      true
-    )
+    expect(
+      validateStoredData(withWindow({ alwaysOnTop: true, hourAlerts: false }), TODAY)?.window
+        .alwaysOnTop
+    ).toBe(true)
   })
 
   it('acepta un alto libre válido', () => {
@@ -304,7 +389,8 @@ describe('validateStoredData migración v1', () => {
         y: null,
         height: null,
         width: null,
-        alwaysOnTop: false, hourAlerts: false
+        alwaysOnTop: false,
+        hourAlerts: false
       }
     })
   })
